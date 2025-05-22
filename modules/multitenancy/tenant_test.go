@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tmeire/floral_crm/internal/tracks/database"
-	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
-	"github.com/tmeire/floral_crm/internal/tracks/modules/multitenancy"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/database/sqlite"
+	"github.com/tmeire/tracks/modules/multitenancy"
 )
 
 func TestTenantDB(t *testing.T) {

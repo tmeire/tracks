@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tmeire/floral_crm/internal/tracks"
-	"github.com/tmeire/floral_crm/internal/tracks/database"
-	"github.com/tmeire/floral_crm/internal/tracks/session"
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/session"
 	"golang.org/x/crypto/bcrypt"
 )
 

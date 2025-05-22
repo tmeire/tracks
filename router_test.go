@@ -3,8 +3,8 @@ package tracks
 import (
 	"encoding/json"
 	"encoding/xml"
-	"github.com/tmeire/floral_crm/internal/tracks/database"
-	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/database/sqlite"
 	"log"
 	"net/http"
 	"net/http/httptest"

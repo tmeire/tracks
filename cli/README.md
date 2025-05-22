@@ -12,10 +12,10 @@ To use the CLI, build the application and run it with the desired command:
 
 ```bash
 # Build the CLI application
-go build -o floral ./cmd/floral
+go build -o tracks ./main.go
 
 # Run the CLI application
-./floral [command]
+./tracks [command]
 ```
 
 ## Available Commands
@@ -25,7 +25,7 @@ go build -o floral ./cmd/floral
 Displays the current version of the Tracks application.
 
 ```bash
-./floral version
+./tracks version
 ```
 
 ### tenant
@@ -51,7 +51,7 @@ Creates a new tenant with the specified name and subdomain.
 Starts the Tracks server with the specified configuration.
 
 ```bash
-./floral server [flags]
+./tracks server [flags]
 ```
 
 #### Flags
@@ -59,7 +59,7 @@ Starts the Tracks server with the specified configuration.
 - `--port, -p`: Port to run the server on (default: 8080)
 - `--host, -H`: Host to bind the server to (default: localhost)
 - `--debug, -d`: Enable debug mode (default: false)
-- `--config`: Config file (default: $HOME/.floral.yaml)
+- `--config`: Config file (default: ./.tracks.yaml)
 
 ## Configuration
 
@@ -71,7 +71,7 @@ The CLI uses Viper for configuration management, which supports:
 
 ### Configuration File
 
-By default, the CLI looks for a configuration file named `.floral.yaml` in the user's home directory. You can specify a different configuration file using the `--config` flag.
+By default, the CLI looks for a configuration file named `.tracks.yaml` in the current directory. You can specify a different configuration file using the `--config` flag.
 
 ### Environment Variables
 

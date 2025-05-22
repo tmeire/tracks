@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/tmeire/floral_crm/internal/tracks/cli/cmd"
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/tmeire/tracks/cli/cmd"
 )
 
 func main() {

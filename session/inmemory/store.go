@@ -1,7 +1,7 @@
 package inmemory
 
 import (
-	"github.com/tmeire/floral_crm/internal/tracks/session"
+	"github.com/tmeire/tracks/session"
 	"sync"
 	"time"
 )

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/tmeire/floral_crm/internal/tracks/database"
-	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/database/sqlite"
 )
 
 func injectTenantDB(tenants *TenantRepository) func(handler http.Handler) http.Handler {

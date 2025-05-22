@@ -2,9 +2,10 @@ package generate
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/tmeire/floral_crm/internal/tracks/cli/project"
 	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/tmeire/tracks/cli/project"
 )
 
 // ControllerCmd returns a cobra.Command for the generate controller command

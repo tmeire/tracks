@@ -2,11 +2,11 @@ package generate
 
 import (
 	"fmt"
-	"github.com/tmeire/floral_crm/internal/tracks/cli/project"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tmeire/tracks/cli/project"
 )
 
 // ResourceCmd returns a cobra.Command for the generate resource command

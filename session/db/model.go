@@ -2,7 +2,7 @@ package db
 
 import (
 	"encoding/json"
-	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/tracks/database"
 	"time"
 )
 

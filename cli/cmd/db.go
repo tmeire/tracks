@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/tmeire/floral_crm/internal/tracks/cli/cmd/db"
+	"github.com/tmeire/tracks/cli/cmd/db"
 )
 
 // DbCmd returns a cobra.Command for the db command

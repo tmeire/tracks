@@ -14,7 +14,7 @@ import (
 	"net/http"
 )
 
-func SetupTracerProvider() (*trace.TracerProvider, error) {
+func SetupTracerProvider(name string) (*trace.TracerProvider, error) {
 	ctx := context.Background()
 
 	// Make a gRPC connection with otel collector.
@@ -34,7 +34,7 @@ func SetupTracerProvider() (*trace.TracerProvider, error) {
 	rs, err := resource.Merge(
 		resource.Default(),
 		resource.NewSchemaless(
-			otelsemconv.ServiceNameKey.String("floral_crm"),
+			otelsemconv.ServiceNameKey.String(name),
 			otelsemconv.ServiceVersionKey.String("1.0.0"),
 		),
 	)

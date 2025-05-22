@@ -1,8 +1,10 @@
 package db
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
-	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/tracks/database"
 )
 
 // MigrateCmd returns a cobra.Command for the db command
@@ -44,7 +46,7 @@ func UpCmd() *cobra.Command {
 		},
 	}
 	upCmd.Flags().StringVar(&dbType, "type", "central", "Database type (central or tenant)")
-	upCmd.Flags().StringVar(&dbPath, "db", "", "Database path (defaults to ./data/floral.sqlite)")
+	upCmd.Flags().StringVar(&dbPath, "db", filepath.Join(".", "data", "tracks.sqlite"), "Database path")
 	return upCmd
 }
 
@@ -71,7 +73,7 @@ func DownCmd() *cobra.Command {
 		},
 	}
 	downCmd.Flags().StringVar(&dbType, "type", "central", "Database type (central or tenant)")
-	downCmd.Flags().StringVar(&dbPath, "db", "", "Database path (defaults to ./data/floral.sqlite)")
+	downCmd.Flags().StringVar(&dbPath, "db", filepath.Join(".", "data", "tracks.sqlite"), "Database path")
 	return downCmd
 }
 
@@ -98,6 +100,6 @@ func StatusCmd() *cobra.Command {
 		},
 	}
 	statusCmd.Flags().StringVar(&dbType, "type", "central", "Database type (central or tenant)")
-	statusCmd.Flags().StringVar(&dbPath, "db", "", "Database path (defaults to ./data/floral.sqlite)")
+	statusCmd.Flags().StringVar(&dbPath, "db", filepath.Join(".", "data", "tracks.sqlite"), "Database path")
 	return statusCmd
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/XSAM/otelsql"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/tracks/database"
 )
 
 // New creates a new SQLite database connection with OpenTelemetry tracing

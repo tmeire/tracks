@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tmeire/floral_crm/internal/tracks/database"
-	"github.com/tmeire/floral_crm/internal/tracks/otel"
-	"github.com/tmeire/floral_crm/internal/tracks/session"
-	sessiondb "github.com/tmeire/floral_crm/internal/tracks/session/db"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/otel"
+	"github.com/tmeire/tracks/session"
+	sessiondb "github.com/tmeire/tracks/session/db"
 )
 
 type Router interface {

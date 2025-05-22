@@ -3,8 +3,8 @@ package authentication
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tmeire/floral_crm/internal/tracks"
-	"github.com/tmeire/floral_crm/internal/tracks/session"
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/session"
 	"net/http"
 	"strconv"
 	"strings"

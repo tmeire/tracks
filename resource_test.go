@@ -2,7 +2,6 @@ package tracks
 
 import (
 	"encoding/json"
-	"github.com/tmeire/floral_crm/internal/tracks/database"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +9,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/database/sqlite"
 )
 
 // Product is a test struct for the Resource test

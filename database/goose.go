@@ -49,9 +49,8 @@ func MigrateUpDir(ctx context.Context, db Database, dbType DatabaseType, migrati
 
 // RunGooseMigration runs a Goose migration command
 func RunGooseMigration(ctx context.Context, command string, dbType DatabaseType, dbPath string) error {
-	// Use the provided database path or default to floral.sqlite
 	if dbPath == "" {
-		dbPath = filepath.Join(".", "data", "floral.sqlite")
+		return errors.New("database path can not be empty")
 	}
 
 	// Set up the database connection

@@ -1,11 +1,11 @@
 package authentication
 
 import (
-	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/tracks/database"
 	"net/http"
 
-	"github.com/tmeire/floral_crm/internal/tracks"
-	"github.com/tmeire/floral_crm/internal/tracks/session"
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/session"
 )
 
 type SessionsResource struct{}

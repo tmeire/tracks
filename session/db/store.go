@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tmeire/floral_crm/internal/tracks/database"
-	"github.com/tmeire/floral_crm/internal/tracks/session"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/session"
 )
 
 // Store implements the session.Store interface using a database

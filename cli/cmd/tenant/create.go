@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
-	"github.com/tmeire/floral_crm/internal/tracks/modules/multitenancy"
+	"github.com/tmeire/tracks/database/sqlite"
+	"github.com/tmeire/tracks/modules/multitenancy"
 )
 
 // blacklistedSubdomains is a list of common subdomain names that can be easily abused
@@ -51,7 +51,7 @@ func CreateCmd() *cobra.Command {
 			}
 
 			// Open a connection to the central database
-			centralDB, err := sqlite.New(filepath.Join(".", "data", "floral.sqlite"))
+			centralDB, err := sqlite.New(filepath.Join(".", "data", "tracks.sqlite"))
 			if err != nil {
 				fmt.Printf("Failed to connect to database: %v\n", err)
 				return

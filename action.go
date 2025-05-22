@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/tmeire/floral_crm/internal/tracks/session"
+	"github.com/tmeire/tracks/session"
 )
 
 // Action is a function that processes an HTTP request and returns either:

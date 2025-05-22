@@ -3,8 +3,8 @@ package multitenancy
 import (
 	"context"
 	"fmt"
-	"github.com/tmeire/floral_crm/internal/tracks"
-	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/database"
 	"net"
 	"net/http"
 	"net/url"

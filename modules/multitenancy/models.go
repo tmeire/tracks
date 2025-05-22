@@ -1,7 +1,7 @@
 package multitenancy
 
 import (
-	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/tracks/database"
 	"time"
 )
 

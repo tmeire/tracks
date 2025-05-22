@@ -3,7 +3,7 @@ package multitenancy
 import (
 	"path/filepath"
 
-	"github.com/tmeire/floral_crm/internal/tracks"
+	"github.com/tmeire/tracks"
 )
 
 // Register registers the multitenancy functionality with the router

@@ -3,7 +3,7 @@ package assets
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/tmeire/floral_crm/internal/tracks/cli/project"
+	"github.com/tmeire/tracks/cli/project"
 	"io/fs"
 	"log"
 	"os"

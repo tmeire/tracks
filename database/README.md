@@ -1,6 +1,6 @@
 # Database Library
 
-This package provides a simple database library for the Floral CRM application. It is designed to meet the following requirements:
+This package provides a simple database library for the Tracks framework. It is designed to meet the following requirements:
 
 - No use of reflection for marshaling/unmarshaling data
 - Minimal duplication of field lists

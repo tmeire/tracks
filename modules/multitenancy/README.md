@@ -18,8 +18,8 @@ To add multitenancy support to your application, add the multitenancy module to 
 
 ```go
 import (
-    "github.com/tmeire/floral_crm/internal/tracks"
-    "github.com/tmeire/floral_crm/internal/tracks/modules/multitenancy"
+    "github.com/tmeire/tracks"
+    "github.com/tmeire/tracks/modules/multitenancy"
 )
 
 func main() {
@@ -52,9 +52,9 @@ Controllers need to be updated to use the tenant database from the request conte
 import (
     "net/http"
 
-    "github.com/tmeire/floral_crm/internal/tracks/database"
-    "github.com/tmeire/floral_crm/internal/tracks/modules/multitenancy"
-    "github.com/tmeire/floral_crm/models"
+    "github.com/tmeire/tracks/database"
+    "github.com/tmeire/tracks/modules/multitenancy"
+    "github.com/username/project/models"
 )
 
 type MyController struct {}
@@ -119,7 +119,7 @@ To create a new tenant programmatically, use the `TenantDB` instance:
 import (
     "context"
 
-    "github.com/tmeire/floral_crm/internal/tracks/modules/multitenancy"
+    "github.com/tmeire/tracks/modules/multitenancy"
 )
 
 func CreateTenant(ctx context.Context, tenantDB *multitenancy.TenantDB, name, subdomain string) (*multitenancy.Tenant, error) {
@@ -135,8 +135,8 @@ To manage user roles within a tenant, use the `UserRole` model and a repository:
 import (
     "context"
 
-    "github.com/tmeire/floral_crm/internal/tracks/database"
-    "github.com/tmeire/floral_crm/internal/tracks/modules/multitenancy"
+    "github.com/tmeire/tracks/database"
+    "github.com/tmeire/tracks/modules/multitenancy"
 )
 
 func AssignUserToTenant(ctx context.Context, centralDB db.Database, userID, tenantID int64, role string) error {
