@@ -1,0 +1,20 @@
+package multitenancy
+
+import (
+	"path/filepath"
+
+	"github.com/tmeire/floral_crm/internal/tracks"
+)
+
+// Register registers the multitenancy functionality with the router
+func Register(r tracks.Router) tracks.Router {
+	tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
+
+	rn := &router{
+		tenantDB,
+		r,
+		r.Clone().Views("./views/tenants"),
+	}
+
+	return rn.Middleware(injectTenantDB(tenantDB))
+}

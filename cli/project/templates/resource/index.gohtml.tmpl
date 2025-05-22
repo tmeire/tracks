@@ -1,0 +1,11 @@
+<h1>{{.ResourceName}} List</h1>
+<ul>
+    {{`{{range .}}`}}
+            <li>
+                    {{`{{.Name}}`}}
+                    <a href="/{{.ResourcePath}}/{{`{{.ID}}`}}/edit" class="action-link">Update</a>
+                    <a href="/{{.ResourcePath}}/{{`{{.ID}}`}}" class="action-link" data-turbo-method="delete" data-turbo-confirm="Are you sure?">Delete</a>
+            </li>
+    {{`{{end}}`}}
+</ul>
+<a href="/{{.ResourcePath}}/new">Create a new {{.ResourceSingular}}</a>

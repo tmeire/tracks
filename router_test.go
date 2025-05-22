@@ -3,6 +3,9 @@ package tracks
 import (
 	"encoding/json"
 	"encoding/xml"
+	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,11 +14,49 @@ import (
 )
 
 func TestRouter_Get(t *testing.T) {
-	// Create a new router
-	router := New()
+	// Create a temporary database for testing
+	tempDB, err := sqlite.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer tempDB.Close()
 
-	// Register a simple handler using Action
-	router.Get("/test", "default", "test", func(r *http.Request) (interface{}, error) {
+	err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
+	if err != nil {
+		log.Fatalf("failed to apply migrations: %v", err)
+	}
+
+	err = writeTemplate("views/default/test.gohtml", `{{.}}`)
+	if err != nil {
+		t.Fatalf("Failed to create template file: %v", err)
+	}
+
+	err = writeTemplate("views/layouts/application.gohtml", `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .Title }}</title>
+</head>
+<body>
+    {{ template "yield" .Content }}
+</body>
+</html>
+`)
+	if err != nil {
+		t.Fatalf("Failed to create template file: %v", err)
+	}
+
+	// Clean up after the test
+	defer func() {
+		os.RemoveAll("views")
+	}()
+
+	// Create a new router
+	router := New("test.local", tempDB)
+
+	// Module a simple handler using Action
+	router.GetFunc("/test", "default", "test", func(r *http.Request) (any, error) {
 		// Return an opaque data object, which will automatically get a StatusOK
 		return "Hello, Test!", nil
 	})
@@ -36,18 +77,15 @@ func TestRouter_Get(t *testing.T) {
 
 		// Check content type
 		contentType := rr.Header().Get("Content-Type")
-		if contentType != "application/json" {
-			t.Errorf("Handler returned wrong content type: got %v want %v", contentType, "application/json")
+		if contentType != "text/html" {
+			t.Errorf("Handler returned wrong content type: got %v want %v", contentType, "text/html")
 		}
 
 		// Check the response body (should be JSON)
-		var responseData string
-		if err := json.Unmarshal(rr.Body.Bytes(), &responseData); err != nil {
-			t.Errorf("Failed to unmarshal JSON response: %v", err)
-		}
-		expected := "Hello, Test!"
-		if responseData != expected {
-			t.Errorf("Handler returned unexpected body: got %v want %v", responseData, expected)
+		responseBody := rr.Body.String()
+		expected := "\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title></title>\n</head>\n<body>\n    Hello, Test!\n</body>\n</html>\n"
+		if responseBody != expected {
+			t.Errorf("Handler returned unexpected body: got %q want %q", responseBody, expected)
 		}
 	})
 
@@ -111,36 +149,12 @@ func TestRouter_Get(t *testing.T) {
 		}
 		expected := "Hello, Test!"
 		if responseData != expected {
-			t.Errorf("Handler returned unexpected body: got %v want %v", responseData, expected)
+			t.Errorf("Handler returned unexpected body: got %q want %v", responseData, expected)
 		}
 	})
 
 	// Test with HTML Accept header
 	t.Run("HTML Content Type", func(t *testing.T) {
-		// Create a test template file
-		if err := os.MkdirAll("views/test", 0755); err != nil {
-			t.Fatalf("Failed to create views directory: %v", err)
-		}
-
-		templateContent := `<!DOCTYPE html>
-<html>
-<head>
-    <title>Test</title>
-</head>
-<body>
-    <h1>{{.}}</h1>
-</body>
-</html>`
-
-		if err := os.WriteFile("views/test/index.gohtml", []byte(templateContent), 0644); err != nil {
-			t.Fatalf("Failed to create template file: %v", err)
-		}
-
-		// Clean up after the test
-		defer func() {
-			os.RemoveAll("views")
-		}()
-
 		req, err := http.NewRequest("GET", "/test", nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
@@ -162,22 +176,34 @@ func TestRouter_Get(t *testing.T) {
 
 		// Check the response body (should contain HTML)
 		responseBody := rr.Body.String()
-		if !strings.Contains(responseBody, "<h1>Hello, Test!</h1>") {
+		if !strings.Contains(responseBody, "\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title></title>\n</head>\n<body>\n    Hello, Test!\n</body>\n</html>\n") {
 			t.Errorf("Handler returned unexpected body: %v", responseBody)
 		}
 	})
 }
 
 func TestRouter_Get_WithError(t *testing.T) {
-	// Create a new router
-	router := New()
+	// Create a temporary database for testing
+	tempDB, err := sqlite.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer tempDB.Close()
 
-	// Register a handler that returns an error
-	router.Get("/error", "default", "error", func(r *http.Request) (interface{}, error) {
+	err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
+	if err != nil {
+		log.Fatalf("failed to apply migrations: %v", err)
+	}
+
+	// Create a new router
+	router := New("test.local", tempDB)
+
+	// Module a handler that returns an error
+	router.GetFunc("/error", "default", "error", func(r *http.Request) (any, error) {
 		// Return a Response object with error data
 		return &Response{
 			StatusCode: http.StatusBadRequest,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"message": "Bad Request",
 				"code":    "INVALID_PARAMETER",
 				"details": map[string]string{"field": "id", "issue": "missing"},
@@ -207,7 +233,7 @@ func TestRouter_Get_WithError(t *testing.T) {
 		}
 
 		// Check the response body
-		var errorResp map[string]interface{}
+		var errorResp map[string]any
 		if err := json.Unmarshal(rr.Body.Bytes(), &errorResp); err != nil {
 			t.Errorf("Failed to unmarshal JSON response: %v", err)
 		}

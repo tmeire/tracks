@@ -1,0 +1,8 @@
+<h1>Edit {{.ResourceSingular}} Form</h1>
+<form action="/{{.ResourcePath}}/{{`{{.ID}}`}}" method="post">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" value="{{`{{.Name}}`}}" required>
+    </div>
+    <button type="submit">Update {{.ResourceSingular}}</button>
+</form>

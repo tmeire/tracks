@@ -2,11 +2,15 @@ package tracks
 
 import (
 	"encoding/json"
+	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/tmeire/floral_crm/internal/tracks/database/sqlite"
 )
 
 // Product is a test struct for the Resource test
@@ -89,7 +93,7 @@ func TestResource(t *testing.T) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ .PageTitle }}</title>
+    <title>{{ .Title }}</title>
 </head>
 <body>
     {{ template "yield" .Content }}
@@ -105,10 +109,22 @@ func TestResource(t *testing.T) {
 		os.RemoveAll("views/product/")
 	}()
 
-	// Create a new router
-	router := New()
+	// Create a temporary database for testing
+	tempDB, err := sqlite.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer tempDB.Close()
 
-	// Register the resource
+	err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
+	if err != nil {
+		log.Fatalf("failed to apply migrations: %v", err)
+	}
+
+	// Create a new router
+	router := New("test.local", tempDB)
+
+	// Module the resource
 	router.Resource(ProductResource{})
 
 	// Test Index action

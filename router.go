@@ -1,25 +1,145 @@
 package tracks
 
 import (
+	"fmt"
+	"html/template"
+	"log"
 	"net/http"
-	"path/filepath"
+	"os"
+	"os/signal"
 	"reflect"
+	"strconv"
 	"strings"
+	"syscall"
+	"time"
+
+	"github.com/tmeire/floral_crm/internal/tracks/database"
+	"github.com/tmeire/floral_crm/internal/tracks/otel"
+	"github.com/tmeire/floral_crm/internal/tracks/session"
+	sessiondb "github.com/tmeire/floral_crm/internal/tracks/session/db"
 )
 
-type Router struct {
-	mux         *http.ServeMux
-	middlewares Middlewares
+type Router interface {
+	Clone() Router
+	Secure() bool
+	BaseDomain() string
+	Port() int
+	Database() database.Database
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
+	Module(m Module) Router
+	Middleware(m Middleware) Router
+	Func(name string, fn any) Router
+	Views(path string) Router
+	Page(path string, view string) Router
+	Redirect(origin string, destination string) Router
+	Get(path string, controller, action string, r Controller) Router
+	GetFunc(path string, controller, action string, r Action) Router
+	PostFunc(path string, controller, action string, r Action) Router
+	PutFunc(path string, controller, action string, r Action) Router
+	PatchFunc(path string, controller, action string, r Action) Router
+	DeleteFunc(path string, controller, action string, r Action) Router
+	Resource(r Resource) Router
+	Run()
 }
 
-func New() *Router {
-	return &Router{
-		http.NewServeMux(),
-		[]Middleware{},
+type router struct {
+	port        int
+	baseDomain  string
+	database    database.Database
+	mux         *http.ServeMux
+	middlewares *middlewares
+	templates   Templates
+}
+
+// New creates a new router with a database-backed session store
+func New(baseDomain string, db database.Database) Router {
+	portVal := os.Getenv("PORT")
+	port, err := strconv.Atoi(portVal)
+	if err != nil || port == 0 {
+		port = 8080
+	}
+
+	r := &router{
+		port:        port,
+		baseDomain:  baseDomain,
+		database:    db,
+		mux:         http.NewServeMux(),
+		middlewares: &middlewares{},
+		templates: Templates{
+			basedir: "./views",
+			fns: template.FuncMap{
+				"today": func() string {
+					return time.Now().Format(time.DateOnly)
+				},
+				"link": func(s string) template.URL {
+					// TODO: very naive implementation
+					host := baseDomain
+					if port != 0 {
+						host = fmt.Sprintf("%s:%d", host, port)
+					}
+					if s[0] != '/' {
+						s = "/" + s
+					}
+					return template.URL("//" + host + s)
+				},
+			},
+		},
+	}
+
+	// HTTP traces for every request
+	r.Middleware(otel.Trace)
+
+	// Catch all panics to make sure no weird output is written to the client
+	r.Middleware(CatchAll)
+
+	// Serving static files on the root domain
+	r.static("/assets/", "public")
+
+	r.Middleware(database.Middleware(db))
+
+	// Set up sessions for all the domains
+	r.Middleware(session.Middleware(
+		baseDomain,
+		sessiondb.NewStore(db),
+	))
+
+	return r
+}
+
+func (r *router) Clone() Router {
+	return &router{
+		port:        r.port,
+		baseDomain:  r.baseDomain,
+		database:    r.database,
+		mux:         http.NewServeMux(),
+		middlewares: r.middlewares,
+		templates:   r.templates,
 	}
 }
 
-func (t *Router) normalize(path string) string {
+// Secure returns true of all the links on the site should use HTTPS
+func (r *router) Secure() bool {
+	// TODO: if all traffic is served over https; for now the same as serveTLS, but this could be different if TLS is terminated by a proxy
+	return false
+}
+
+func (r *router) BaseDomain() string {
+	return r.baseDomain
+}
+
+func (r *router) Port() int {
+	return r.port
+}
+
+func (r *router) Database() database.Database {
+	return r.database
+}
+
+func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.mux.ServeHTTP(w, req)
+}
+
+func (r *router) normalize(path string) string {
 	path = strings.ToLower(path)
 	path = strings.TrimSuffix(path, "resource")
 
@@ -29,25 +149,7 @@ func (t *Router) normalize(path string) string {
 	return path
 }
 
-// ServeHTTP is the HTTP handler implementation for the Router.
-//
-// This method allows the Router to act as an http.Handler, which means it can be used directly
-// as the root handler for an HTTP server. It delegates the actual request handling to the
-// underlying ServeMux, which routes requests based on their registered handlers.
-//
-// Parameters:
-// - w: An http.ResponseWriter used to send the HTTP response back to the client.
-// - r: A pointer to the http.Request representing the incoming HTTP request.
-//
-// Example usage:
-//
-//	router := tracks.New()
-//	http.ListenAndServe(":8080", router)
-func (t *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t.mux.ServeHTTP(w, r)
-}
-
-// serve is a helper method for the Router type that registers a handler for a specific HTTP method
+// serve is a helper method for the router type that registers a handler for a specific HTTP method
 // and path in the ServeMux. It constructs a key using the HTTP method and a normalized path,
 // then registers the provided Action as the handler for that key.
 //
@@ -55,103 +157,18 @@ func (t *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // - method: the HTTP method (e.g., "GET", "POST", etc.).
 // - path: the URL path for which the handler should be registered.
 // - r: the Action function that handles HTTP requests.
-func (t *Router) serve(method, urlPath string, controller, action string, a Action) {
-	normalizedPath := t.normalize(urlPath)
+func (r *router) serve(method, urlPath string, controller, action string, a Action) {
+	normalizedPath := r.normalize(urlPath)
 
-	t.mux.Handle(method+" "+normalizedPath, t.middlewares.Wrap(wrap(controller, action, a)))
+	pattern := method + " " + normalizedPath
+	println(pattern)
+
+	tpl := template.Must(r.templates.Load(controller, action))
+
+	r.mux.Handle(pattern, r.middlewares.Wrap(a.wrap(controller, action, tpl)))
 }
 
-// Get registers a handler for HTTP GET requests to the specified path.
-//
-// Parameters:
-// - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP GET request.
-func (t *Router) Get(path string, controller, action string, r Action) {
-	t.serve(http.MethodGet, path, controller, action, r)
-}
-
-// Post registers a handler for HTTP POST requests to the specified path.
-//
-// Parameters:
-// - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP POST request.
-func (t *Router) Post(path string, controller, action string, r Action) {
-	t.serve(http.MethodPost, path, controller, action, r)
-}
-
-// Put registers a handler for HTTP PUT requests to the specified path.
-//
-// Parameters:
-// - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP PUT request.
-func (t *Router) Put(path string, controller, action string, r Action) {
-	t.serve(http.MethodPut, path, controller, action, r)
-}
-
-// Patch registers a handler for HTTP PATCH requests to the specified path.
-//
-// Parameters:
-// - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP PATCH request.
-func (t *Router) Patch(path string, controller, action string, r Action) {
-	t.serve(http.MethodPatch, path, controller, action, r)
-}
-
-// Delete registers a handler for HTTP DELETE requests to the specified path.
-//
-// Parameters:
-// - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP DELETE request.
-func (t *Router) Delete(path string, controller, action string, r Action) {
-	t.serve(http.MethodDelete, path, controller, action, r)
-}
-
-// Resource registers a resourceful route for a given resource and tasks it with handling
-// a set of HTTP methods (GET, POST, PUT, DELETE) for resourceful paths.
-//
-// A resource provides CRUD-like routes including:
-//
-// - Index: Handles GET requests for the base path (e.g., `/resource`).
-// - New: Handles GET requests for creating a new resource (e.g., `/resource/new`).
-// - Create: Handles POST requests to create a new resource at the base path.
-// - Show: Handles GET requests for a specific resource identified by its ID (e.g., `/resource/:id`).
-// - Edit: Handles GET requests to edit a specific resource (e.g., `/resource/:id/edit`).
-// - Update: Handles PUT requests for updating a specific resource (e.g., `/resource/:id`).
-// - Destroy: Handles DELETE requests for deleting a specific resource (e.g., `/resource/:id`).
-//
-// Parameters:
-// - name: The name of the resource (e.g., "users").
-// - r: An implementation of the Resource interface, providing handler methods for resourceful paths.
-//
-// Returns:
-// - A pointer to the sub-router created for the resource.
-func (t *Router) Resource(r Resource) {
-	rt := reflect.TypeOf(r)
-	if rt.Kind() == reflect.Ptr {
-		rt = rt.Elem()
-	}
-	name := strings.TrimSuffix(strings.ToLower(rt.Name()), "resource")
-
-	basePath := t.normalize(name)
-
-	// Register resource actions with the controller name
-	t.Get(basePath+"/", name, "index", r.Index)
-	t.Get(basePath+"/new", name, "new", r.New)
-	t.Post(basePath+"/", name, "create", r.Create)
-
-	t.Get(basePath+"/{id}", name, "show", r.Show)
-	t.Get(basePath+"/{id}/edit", name, "edit", r.Edit)
-	t.Put(basePath+"/{id}", name, "update", r.Update)
-	t.Post(basePath+"/{id}", name, "update", r.Update)
-
-	t.Delete(basePath+"/{id}", name, "destroy", r.Destroy)
-}
-
-func (t *Router) Middleware(m Middleware) {
-	t.middlewares = append(t.middlewares, m)
-}
-
-// Static registers a directory to serve static files from.
+// static registers a directory to serve static files from.
 // The provided path will be used as the base URL path for the static files.
 // For example, if path is "/assets", then files in the directory will be
 // available at "/assets/filename".
@@ -159,7 +176,7 @@ func (t *Router) Middleware(m Middleware) {
 // Parameters:
 // - urlPath: the URL path prefix for static files (e.g., "/assets").
 // - dir: the directory containing the static files to serve.
-func (t *Router) Static(urlPath, dir string) {
+func (r *router) static(urlPath, dir string) Router {
 	// Ensure the path starts with a slash
 	if !strings.HasPrefix(urlPath, "/") {
 		urlPath = "/" + urlPath
@@ -178,8 +195,217 @@ func (t *Router) Static(urlPath, dir string) {
 	handler := http.StripPrefix(urlPath, fileServer)
 
 	// Register the handler for the URL path
-	t.mux.Handle(http.MethodGet+" "+urlPath, handler)
+	r.mux.Handle(http.MethodGet+" "+urlPath, handler)
 
-	// Also handle requests for files within the directory
-	t.mux.Handle(http.MethodGet+" "+filepath.Join(urlPath, "*"), handler)
+	return r
+}
+
+type Module func(Router) Router
+
+// Module registers all the module functionality (controllers, middlewares,...) into the router.
+// This is equivalent to `m(r)`, but enables chaining when setting up the router.
+func (r *router) Module(m Module) Router {
+	return m(r)
+}
+
+func (r *router) Middleware(m Middleware) Router {
+	r.middlewares.Apply(m)
+	return r
+}
+
+func (r *router) Func(name string, fn any) Router {
+	r.templates.Func(name, fn)
+	return r
+}
+
+func (r *router) Views(path string) Router {
+	r.templates.basedir = path
+	r.templates.layout = nil
+	return r
+}
+
+// Page registers a handler for HTTP GET requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - view: the "controller#action" name of the view to serve as the response to the HTTP GET request.
+//
+// Returns:
+// - A pointer to the router instance, enabling chaining.
+func (r *router) Page(path string, view string) Router {
+	parts := strings.Split(view, "#")
+	if len(parts) > 2 {
+		panic("invalid view " + view)
+	}
+
+	var controller, action string
+	if len(parts) == 1 {
+		action = parts[0]
+	} else {
+		controller = parts[0]
+		action = parts[1]
+	}
+
+	if controller == "" {
+		controller = "default"
+	}
+
+	return r.GetFunc(path, controller, action, func(r *http.Request) (any, error) {
+		return "", nil
+	})
+}
+
+func (r *router) Redirect(origin string, destination string) Router {
+	r.mux.Handle(origin, http.RedirectHandler(destination, http.StatusMovedPermanently))
+	return r
+}
+
+// Get registers a handler for HTTP GET requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - r: the Action to handle the HTTP GET request.
+func (r *router) Get(path string, controller, action string, c Controller) Router {
+	if nr, needsRouter := c.(interface {
+		Inject(r Router)
+	}); needsRouter {
+		nr.Inject(r)
+	}
+	r.serve(http.MethodGet, path, controller, action, c.Index)
+	return r
+}
+
+// GetFunc registers a handler for HTTP GET requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - r: the Action to handle the HTTP GET request.
+func (r *router) GetFunc(path string, controller, action string, a Action) Router {
+	r.serve(http.MethodGet, path, controller, action, a)
+	return r
+}
+
+// PostFunc registers a handler for HTTP POST requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - r: the Action to handle the HTTP POST request.
+func (r *router) PostFunc(path string, controller, action string, a Action) Router {
+	r.serve(http.MethodPost, path, controller, action, a)
+	return r
+}
+
+// PutFunc registers a handler for HTTP PUT requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - r: the Action to handle the HTTP PUT request.
+func (r *router) PutFunc(path string, controller, action string, a Action) Router {
+	r.serve(http.MethodPut, path, controller, action, a)
+	return r
+}
+
+// PatchFunc registers a handler for HTTP PATCH requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - r: the Action to handle the HTTP PATCH request.
+func (r *router) PatchFunc(path string, controller, action string, a Action) Router {
+	r.serve(http.MethodPatch, path, controller, action, a)
+	return r
+}
+
+// DeleteFunc registers a handler for HTTP DELETE requests to the specified path.
+//
+// Parameters:
+// - path: the URL path for which the handler should be registered.
+// - r: the Action to handle the HTTP DELETE request.
+func (r *router) DeleteFunc(path string, controller, action string, a Action) Router {
+	r.serve(http.MethodDelete, path, controller, action, a)
+	return r
+}
+
+// Resource registers a resourceful route for a given resource and tasks it with handling
+// a set of HTTP methods (GET, POST, PUT, DELETE) for resourceful paths.
+//
+// A resource provides CRUD-like routes including:
+//
+// - Index: Handles GET requests for the base path (e.g., `/resource`).
+// - New: Handles GET requests for creating a new resource (e.g., `/resource/new`).
+// - Create: Handles POST requests to create a new resource at the base path.
+// - Show: Handles GET requests for a specific resource identified by its ID (e.g., `/resource/:id`).
+// - Edit: Handles GET requests to edit a specific resource (e.g., `/resource/:id/edit`).
+// - Update: Handles PUT requests for updating a specific resource (e.g., `/resource/:id`).
+// - Destroy: Handles DELETE requests for deleting a specific resource (e.g., `/resource/:id`).
+//
+// Parameters:
+// - r: An implementation of the Resource interface, providing handler methods for resourceful paths.
+//
+// Returns:
+// - A pointer to the sub-router created for the resource.
+func (r *router) Resource(rs Resource) Router {
+	// This little piece of reflection is OK since it only runs once on boot,
+	// it's not a reflection penalty on every request.
+	rt := reflect.TypeOf(rs)
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+	name := strings.TrimSuffix(strings.ToLower(rt.Name()), "resource")
+
+	basePath := r.normalize(name)
+
+	// Register resource actions with the controller name
+	r.GetFunc(basePath+"/", name, "index", rs.Index)
+	r.GetFunc(basePath+"/new", name, "new", rs.New)
+	r.PostFunc(basePath+"/", name, "create", rs.Create)
+
+	r.GetFunc(basePath+"/{id}", name, "show", rs.Show)
+	r.GetFunc(basePath+"/{id}/edit", name, "edit", rs.Edit)
+	r.PutFunc(basePath+"/{id}", name, "update", rs.Update)
+	r.PostFunc(basePath+"/{id}", name, "update", rs.Update)
+
+	r.DeleteFunc(basePath+"/{id}", name, "destroy", rs.Destroy)
+
+	return r
+}
+
+// Run starts the HTTP server using the router as the handler on the specified port or default port 8080 if unset.
+// It retrieves the port from the PORT environment variable and logs the server address before starting it.
+func (r *router) Run() {
+	Serve(r, r.port)
+}
+
+func Serve(h http.Handler, port int) {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: h,
+	}
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatalf("HTTP server failed: %v", err)
+		}
+	}()
+
+	// This will block the function until the server stops or an OS signal is received
+	select {
+	case <-sigc:
+		err := server.Close()
+		if err != nil {
+			panic(err)
+		}
+	case <-done:
+	}
 }

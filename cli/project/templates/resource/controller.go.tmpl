@@ -1,0 +1,106 @@
+package controllers
+
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/tmeire/floral_crm/internal/tracks"
+	"github.com/tmeire/floral_crm/models"
+)
+
+// {{.ResourceName}} implements the tracks.Resource interface
+type {{.ResourceName}} struct {
+	List []*models.{{.ModelName}}
+}
+
+func (s *{{.ResourceName}}) Index(r *http.Request) (any, error) {
+	return s.List, nil
+}
+
+func (s *{{.ResourceName}}) New(r *http.Request) (any, error) {
+	return models.{{.ModelName}}{Name: fmt.Sprintf("{{.ModelName}} %d", len(s.List)+1)}, nil
+}
+
+func (s *{{.ResourceName}}) Create(r *http.Request) (any, error) {
+	if err := r.ParseForm(); err != nil {
+		return nil, err
+	}
+
+	name := r.FormValue("name")
+	item := &models.{{.ModelName}}{ID: len(s.List), Name: name}
+	s.List = append(s.List, item)
+
+	// For status codes other than OK, we need to return a Response object
+	return &tracks.Response{
+		StatusCode: http.StatusCreated,
+		Location:   fmt.Sprintf("/{{.ResourcePath}}/%d", item.ID),
+		Data:       item,
+	}, nil
+}
+
+func (s *{{.ResourceName}}) get(idValue string) (*models.{{.ModelName}}, error) {
+	id, err := strconv.Atoi(idValue)
+	if err != nil {
+		return nil, fmt.Errorf("id %q for {{.ResourcePath}} is invalid", id)
+	}
+	if id < 0 || id >= len(s.List) {
+		return nil, fmt.Errorf("{{.ResourcePath}} with id %d not found", id)
+	}
+
+	for _, item := range s.List {
+		if item.ID == id {
+			return item, nil
+		}
+	}
+	return nil, fmt.Errorf("{{.ResourcePath}} with id %d not found", id)
+}
+
+func (s *{{.ResourceName}}) Show(r *http.Request) (any, error) {
+	return s.get(r.PathValue("id"))
+}
+
+func (s *{{.ResourceName}}) Edit(r *http.Request) (any, error) {
+	return s.get(r.PathValue("id"))
+}
+
+func (s *{{.ResourceName}}) Update(r *http.Request) (any, error) {
+	item, err := s.get(r.PathValue("id"))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.ParseForm(); err != nil {
+		return nil, err
+	}
+
+	item.Name = r.FormValue("name")
+
+	// For status codes other than OK, we need to return a Response object
+	return &tracks.Response{
+		StatusCode: http.StatusCreated,
+		Location:   fmt.Sprintf("/{{.ResourcePath}}/%d", item.ID),
+		Data:       item,
+	}, nil
+}
+
+func (s *{{.ResourceName}}) Destroy(r *http.Request) (any, error) {
+	// This is not the most efficient way to do this, but it will do for now
+	item, err := s.get(r.PathValue("id"))
+	if err != nil {
+		return nil, err
+	}
+
+	for i, listItem := range s.List {
+		if listItem.ID == item.ID {
+			s.List = append(s.List[:i], s.List[i+1:]...)
+			break
+		}
+	}
+
+	return &tracks.Response{
+		StatusCode: http.StatusNoContent,
+		Location:   "/{{.ResourcePath}}/",
+		Data:       nil,
+	}, nil
+}

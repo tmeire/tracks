@@ -4,59 +4,49 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"html/template"
+	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/tmeire/floral_crm/internal/tracks/session"
 )
 
-type action struct {
-	template *template.Template
-	impl     Action
-}
+// Action is a function that processes an HTTP request and returns either:
+// 1. An opaque data object or a Response object with status and message, and
+// 2. An error object that satisfies the Go error interface
+//
+// If the first return value is an opaque data object (not a Response), the status will be set to OK.
+type Action func(r *http.Request) (any, error)
 
-func wrap(controllerName, actionName string, a Action) *action {
+func (a Action) wrap(controllerName, actionName string, tpl *template.Template) *action {
 	return &action{
-		template: template.Must(load(controllerName, actionName)),
+		name:     controllerName + "#" + actionName,
+		template: tpl,
 		impl:     a,
 	}
 }
 
-func load(controller, action string) (*template.Template, error) {
-	// Construct the template path
-	templatePath := strings.ToLower(filepath.Join("views", controller, action+".gohtml"))
-
-	// Check if template exists
-	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	layout, err := template.ParseFiles("./views/layouts/application.gohtml")
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse and execute template
-	tmpl, err := template.ParseFiles(templatePath)
-	if err != nil {
-		return nil, err
-	} else {
-		_, err = layout.AddParseTree("yield", tmpl.Tree)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return layout, nil
+type action struct {
+	name     string
+	template *template.Template
+	impl     Action
 }
 
 func (a *action) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), a.name)
+	defer span.End()
+
+	r = r.WithContext(ctx)
+
 	data, err := a.impl(r)
 
 	var resp *Response
 
 	// If there's an error, create an error response
 	if err != nil {
+		panic(err)
 		resp = &Response{
 			StatusCode: http.StatusInternalServerError,
 			Data: map[string]string{
@@ -86,24 +76,36 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 	}
 
 	// Determine content type based on Accept header
-	contentType := determineContentType(r)
+	contentTypes := determineContentType(r)
 
 	var render renderer
-	switch contentType {
-	case "application/json":
-		render = a.renderJSON
-	case "application/xml":
-		render = a.renderXML
-	case "text/html":
-		render = a.renderHTML
-	case "text/plain":
-		render = a.renderText
+	for _, contentType := range contentTypes {
+		switch contentType {
+		case "application/json":
+			render = a.renderJSON
+		case "application/xml":
+			render = a.renderXML
+		case "text/html":
+			render = a.renderHTML
+		case "text/plain":
+			render = a.renderText
+		}
+		if render != nil {
+			break
+		}
 	}
 
-	err := render(w, resp)
+	if render == nil {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+
+	err := render(r, w, resp)
 	if err == nil {
 		return
 	}
+
+	log.Println(err)
 
 	// If template rendering fails, fallback to JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -114,11 +116,11 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 	}
 }
 
-type renderer func(w http.ResponseWriter, resp *Response) error
+type renderer func(r *http.Request, w http.ResponseWriter, resp *Response) error
 
 // renderHTML renders an HTML template with the given data
-func (a *action) renderHTML(w http.ResponseWriter, resp *Response) error {
-	if resp.Location != "" && (resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusNoContent) {
+func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Response) error {
+	if resp.Location != "" {
 		w.Header().Set("Location", resp.Location)
 		w.WriteHeader(http.StatusSeeOther)
 		return nil
@@ -130,30 +132,38 @@ func (a *action) renderHTML(w http.ResponseWriter, resp *Response) error {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(resp.StatusCode)
 
+	_, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
+	defer span.End()
+
+	// TODO: Write to a buffer and only write to the response on success
 	return a.template.ExecuteTemplate(w, "application.gohtml", struct {
-		PageTitle string
-		Content   any
+		Title   string
+		Session session.Session
+		Flash   map[string]string
+		Content any
 	}{
-		PageTitle: "",
-		Content:   resp.Data,
+		Title:   resp.Title,
+		Session: session.FromRequest(r),
+		Flash:   session.FlashMessages(r),
+		Content: resp.Data,
 	})
 }
 
-func (a *action) renderJSON(w http.ResponseWriter, resp *Response) error {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+func (a *action) renderJSON(r *http.Request, w http.ResponseWriter, resp *Response) error {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 
 	return json.NewEncoder(w).Encode(resp.Data)
 }
 
-func (a *action) renderXML(w http.ResponseWriter, resp *Response) error {
-	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+func (a *action) renderXML(r *http.Request, w http.ResponseWriter, resp *Response) error {
+	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(resp.StatusCode)
 
 	return xml.NewEncoder(w).Encode(resp.Data)
 }
 
-func (a *action) renderText(w http.ResponseWriter, resp *Response) error {
+func (a *action) renderText(r *http.Request, w http.ResponseWriter, resp *Response) error {
 	// For plain text, try to convert to string if possible
 	if str, ok := resp.Data.(string); ok {
 		w.Header().Set("Content-Type", "text/html")
@@ -170,7 +180,7 @@ func (a *action) renderText(w http.ResponseWriter, resp *Response) error {
 	}
 
 	// Fallback to JSON for complex objects but keep the text/plain content type
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 
 	return json.NewEncoder(w).Encode(resp.Data)
@@ -180,22 +190,15 @@ func (a *action) renderText(w http.ResponseWriter, resp *Response) error {
 // It returns one of: "application/json", "application/xml", "text/html", or "text/plain" (default).
 // The function examines the file extension in the URL path and maps it to the appropriate MIME type.
 // If no recognized extension is found, it defaults to "text/plain".
-func determineContentType(r *http.Request) string {
-	if dot := strings.LastIndex(r.URL.Path, "."); dot >= 0 {
-		switch strings.ToLower(r.URL.Path[dot+1:]) {
-		case "json":
-			return "application/json"
-		case "xml":
-			return "application/xml"
-		case "html", "htm":
-			return "text/html"
-		case "txt":
-			return "text/plain"
-		}
+func determineContentType(r *http.Request) []string {
+	accept := strings.TrimSpace(r.Header.Get("Accept"))
+	if accept == "" {
+		return []string{"text/html"}
 	}
-	// if it has the JSON header, return JSON
-	if strings.Contains(r.Header.Get("Accept"), "application/json") {
-		return "application/json"
+
+	var res []string
+	for _, t := range strings.Split(accept, ",") {
+		res = append(res, strings.TrimSpace(strings.Split(t, ";")[0]))
 	}
-	return "text/html"
+	return res
 }
