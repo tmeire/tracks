@@ -30,6 +30,17 @@ type field struct {
 	OmitEmpty bool
 }
 
+func toSnakeCase(s string) string {
+	var sb strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			sb.WriteRune('_')
+		}
+		sb.WriteRune(r)
+	}
+	return strings.ToLower(sb.String())
+}
+
 func deconstruct[T Model[T]]() DD[T] {
 	var zero T
 	t := reflect.TypeOf(zero)
@@ -41,7 +52,7 @@ func deconstruct[T Model[T]]() DD[T] {
 		tag := strings.TrimSpace(f.Tag.Get("tracks"))
 
 		if f.Name == "Model" {
-			dd.TableName = tag
+			dd.TableName = toSnakeCase(tag)
 			continue
 		}
 
