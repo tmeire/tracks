@@ -112,7 +112,7 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	t := database.NewRepositoryFromContext[*User](r.Context())
+	t := database.NewRepository[*User]()
 
 	// Check if a user with this email already exists
 	existingUsers, err := t.FindBy(r.Context(), map[string]any{"email": email})
