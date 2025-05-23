@@ -44,6 +44,9 @@ func toSnakeCase(s string) string {
 func deconstruct[T Model[T]]() DD[T] {
 	var zero T
 	t := reflect.TypeOf(zero)
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
 
 	dd := DD[T]{}
 
