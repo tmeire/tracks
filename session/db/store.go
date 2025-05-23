@@ -15,9 +15,9 @@ type Store struct {
 }
 
 // NewStore creates a new database-backed session store
-func NewStore(db database.Database) *Store {
+func NewStore() *Store {
 	return &Store{
-		repository: database.NewRepository[*SessionModel](db),
+		repository: database.NewRepository[*SessionModel](),
 	}
 }
 
