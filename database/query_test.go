@@ -1,22 +1,17 @@
 package database
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestProduct is a test model that implements the Model interface
 type TestProduct struct {
-	ID    int     `json:"id"`
-	Name  string  `json:"name"`
-	Price float64 `json:"price"`
-}
-
-// TableName returns the name of the database table for this model
-func (p TestProduct) TableName() string {
-	return "products"
+	Model[TestProduct] `tracks:"products"`
+	ID                 int     `tracks:"id,primarykey,autogen"`
+	Name               string  `tracks:"name"`
+	Price              float64 `tracks:"price"`
 }
 
 // Fields returns the list of field names for this model
@@ -47,35 +42,6 @@ func (p TestProduct) HasAutoIncrementID() bool {
 // GetID returns the ID of the model
 func (p TestProduct) GetID() any {
 	return p.ID
-}
-
-// MockDB is a mock implementation of the Database interface for testing
-type MockDB struct {
-	// QueryFunc is a function that will be called by QueryContext
-	QueryFunc func(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	// ExecFunc is a function that will be called by ExecContext
-	ExecFunc func(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
-// QueryContext executes a query that returns rows
-func (m *MockDB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
-	if m.QueryFunc != nil {
-		return m.QueryFunc(ctx, query, args...)
-	}
-	return nil, fmt.Errorf("QueryFunc not implemented")
-}
-
-// ExecContext executes a query that doesn't return rows
-func (m *MockDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	if m.ExecFunc != nil {
-		return m.ExecFunc(ctx, query, args...)
-	}
-	return nil, fmt.Errorf("ExecFunc not implemented")
-}
-
-// Close closes the database connection
-func (m *MockDB) Close() error {
-	return nil
 }
 
 // TestQueryBuilding tests that the query building functions correctly generate SQL strings and arguments
@@ -180,27 +146,18 @@ func TestQueryBuilding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock database
-			mockDB := &MockDB{}
-
-			// Create a repository with the mock database
-			repo := NewRepository[TestProduct](mockDB)
+			// Create a repository
+			repo := NewRepository[TestProduct]()
 
 			// Setup the query
 			query := tt.setupQuery(repo)
 
 			// Build the query and check the SQL and args
 			sql, args := query.Build()
-			if sql != tt.expectedSQL {
-				t.Errorf("unexpected SQL query: got %q, want %q", sql, tt.expectedSQL)
-			}
-			if len(args) != len(tt.expectedArgs) {
-				t.Errorf("unexpected number of args: got %d, want %d", len(args), len(tt.expectedArgs))
-			}
-			for i, arg := range args {
-				if arg != tt.expectedArgs[i] {
-					t.Errorf("unexpected arg at index %d: got %v, want %v", i, arg, tt.expectedArgs[i])
-				}
+			assert.Equal(t, tt.expectedSQL, sql, "SQL query should match expected")
+			assert.Len(t, args, len(tt.expectedArgs), "Number of arguments should match expected")
+			for i, expectedArg := range tt.expectedArgs {
+				assert.Equal(t, expectedArg, args[i], "Argument at index %d should match expected", i)
 			}
 		})
 	}
