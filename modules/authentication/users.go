@@ -13,12 +13,13 @@ import (
 )
 
 type User struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	password  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	database.Model[*User] `tracks:"users"`
+	ID                    string `json:"id"`
+	Email                 string `json:"email"`
+	Name                  string `json:"name"`
+	password              string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // TableName returns the name of the database table for this model

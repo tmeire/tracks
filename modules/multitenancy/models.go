@@ -7,12 +7,13 @@ import (
 
 // Tenant represents a tenant in the system
 type Tenant struct {
-	ID        int
-	Name      string
-	Subdomain string
-	DBPath    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	database.Model[*Tenant] `tracks:"tenants"`
+	ID                      int
+	Name                    string
+	Subdomain               string
+	DBPath                  string
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // TableName returns the name of the database table for this model
@@ -52,12 +53,13 @@ func (t *Tenant) GetID() any {
 
 // UserRole represents a user's role within a tenant
 type UserRole struct {
-	ID        int64
-	UserID    string
-	TenantID  int64
-	Role      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	database.Model[*UserRole] `tracks:"user_roles"`
+	ID                        int64
+	UserID                    string
+	TenantID                  int64
+	Role                      string
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 // TableName returns the name of the database table for this model
