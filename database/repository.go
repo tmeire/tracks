@@ -94,7 +94,7 @@ func deconstruct[T Model[T]]() DD[T] {
 		if len(flags) >= 1 && flags[0] != "" {
 			ddf.Name = flags[0]
 		} else {
-			ddf.Name = f.Name
+			ddf.Name = toSnakeCase(f.Name)
 		}
 
 		isPrimaryKey := false

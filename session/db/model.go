@@ -8,12 +8,12 @@ import (
 
 // SessionModel represents a session stored in the database
 type SessionModel struct {
-	database.Model[SessionModel] `tracks:"sessions"`
-	ID                           string
-	Data                         string // JSON-encoded session data
-	Flash                        string // JSON-encoded flash data
-	CreatedAt                    time.Time
-	UpdatedAt                    time.Time
+	database.Model[*SessionModel] `tracks:"sessions"`
+	ID                            string
+	Data                          string // JSON-encoded session data
+	Flash                         string // JSON-encoded flash data
+	CreatedAt                     time.Time
+	UpdatedAt                     time.Time
 }
 
 // TableName returns the name of the database table for this model
