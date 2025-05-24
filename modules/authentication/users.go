@@ -22,21 +22,6 @@ type User struct {
 	UpdatedAt             time.Time
 }
 
-// TableName returns the name of the database table for this model
-func (*User) TableName() string {
-	return "users"
-}
-
-// Fields returns the list of field names for this model
-func (*User) Fields() []string {
-	return []string{"email", "name", "password", "created_at", "updated_at"}
-}
-
-// Values returns the values of the fields in the same order as Fields()
-func (s *User) Values() []any {
-	return []any{s.Email, s.Name, s.password, s.CreatedAt, s.UpdatedAt}
-}
-
 // Scan scans the values from a row into this model
 func (*User) Scan(row database.Scanner) (*User, error) {
 	var n User
@@ -46,16 +31,6 @@ func (*User) Scan(row database.Scanner) (*User, error) {
 		return nil, err
 	}
 	return &n, nil
-}
-
-// HasAutoIncrementID returns true if the ID is auto-incremented by the database
-func (*User) HasAutoIncrementID() bool {
-	return false
-}
-
-// GetID returns the ID of the model
-func (s *User) GetID() any {
-	return s.ID
 }
 
 // SetPassword encrypts the provided password using bcrypt and stores the encrypted value in the user's password field.

@@ -9,7 +9,7 @@ import (
 // SessionModel represents a session stored in the database
 type SessionModel struct {
 	database.Model[*SessionModel] `tracks:"sessions"`
-	ID                            string
+	ID                            string `tracks:",primarykey"`
 	Data                          string // JSON-encoded session data
 	Flash                         string // JSON-encoded flash data
 	CreatedAt                     time.Time

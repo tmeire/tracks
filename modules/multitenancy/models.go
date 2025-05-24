@@ -16,21 +16,6 @@ type Tenant struct {
 	UpdatedAt               time.Time
 }
 
-// TableName returns the name of the database table for this model
-func (t *Tenant) TableName() string {
-	return "tenants"
-}
-
-// Fields returns the list of field names for this model
-func (t *Tenant) Fields() []string {
-	return []string{"name", "subdomain", "db_path", "created_at", "updated_at"}
-}
-
-// Values returns the values of the fields in the same order as Fields()
-func (t *Tenant) Values() []any {
-	return []any{t.Name, t.Subdomain, t.DBPath, t.CreatedAt, t.UpdatedAt}
-}
-
 // Scan scans the values from a row into this model
 func (t *Tenant) Scan(row database.Scanner) (*Tenant, error) {
 	var ret = Tenant{}
@@ -39,16 +24,6 @@ func (t *Tenant) Scan(row database.Scanner) (*Tenant, error) {
 		return nil, err
 	}
 	return &ret, nil
-}
-
-// HasAutoIncrementID returns true if the ID is auto-incremented by the database
-func (t *Tenant) HasAutoIncrementID() bool {
-	return true
-}
-
-// GetID returns the ID of the model
-func (t *Tenant) GetID() any {
-	return t.ID
 }
 
 // UserRole represents a user's role within a tenant
@@ -62,21 +37,6 @@ type UserRole struct {
 	UpdatedAt                 time.Time
 }
 
-// TableName returns the name of the database table for this model
-func (ur *UserRole) TableName() string {
-	return "user_roles"
-}
-
-// Fields returns the list of field names for this model
-func (ur *UserRole) Fields() []string {
-	return []string{"user_id", "tenant_id", "role", "created_at", "updated_at"}
-}
-
-// Values returns the values of the fields in the same order as Fields()
-func (ur *UserRole) Values() []any {
-	return []any{ur.UserID, ur.TenantID, ur.Role, ur.CreatedAt, ur.UpdatedAt}
-}
-
 // Scan scans the values from a row into this model
 func (ur *UserRole) Scan(row database.Scanner) (*UserRole, error) {
 	var res UserRole
@@ -85,14 +45,4 @@ func (ur *UserRole) Scan(row database.Scanner) (*UserRole, error) {
 		return nil, err
 	}
 	return &res, nil
-}
-
-// HasAutoIncrementID returns true if the ID is auto-incremented by the database
-func (ur *UserRole) HasAutoIncrementID() bool {
-	return true
-}
-
-// GetID returns the ID of the model
-func (ur *UserRole) GetID() any {
-	return ur.ID
 }

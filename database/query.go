@@ -112,7 +112,7 @@ func (q *QueryBuilder[T]) Offset(offset int) ExecutableQuery[T] {
 func (q *QueryBuilder[T]) Build() (string, []any) {
 	var fields string
 	if len(q.fields) > 0 {
-		fields = "id, " + strings.Join(q.fields, ", ")
+		fields = strings.Join(q.fields, ", ")
 	} else {
 		fields = "*"
 	}
