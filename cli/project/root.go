@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -23,6 +24,120 @@ func Load() (*Project, error) {
 	}
 
 	return &Project{rootDir: rootDir}, nil
+}
+
+func (p *Project) Initialize() error {
+	// Add tracks as a dependency in the go.mod file
+	fmt.Println("Adding tracks as a dependency...")
+	if err := p.addTracksDependency(); err != nil {
+		return err
+	}
+
+	// Create base folders
+	fmt.Println("Creating base folders...")
+	if err := p.createBaseFolders(); err != nil {
+		return err
+	}
+
+	applicationName := filepath.Base(p.rootDir)
+
+	// Create landing page
+	fmt.Println("Creating index page with layout and style...")
+	if err := p.createLandingPage(applicationName); err != nil {
+		return err
+	}
+
+	// Add router setup to main.go
+	fmt.Println("Adding router setup to main.go...")
+	return p.addRouterSetup()
+}
+
+// addTracksDependency adds tracks as a dependency in the go.mod file
+func (p *Project) addTracksDependency() error {
+	cmd := exec.Command("go", "get", "github.com/tmeire/tracks")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// createBaseFolders creates the base folders for the application
+func (p *Project) createBaseFolders() error {
+	folders := []string{"controllers", "models", "views/layouts", "views/default", "public/css"}
+	for _, folder := range folders {
+		if err := os.MkdirAll(folder, 0755); err != nil {
+			return fmt.Errorf("Error creating %s directory: %w\n", folder, err)
+		}
+	}
+	return nil
+}
+
+// createLandingPage creates a basic index page in the views directory, an application layout file and a css file
+func (p *Project) createLandingPage(applicationName string) error {
+	err := p.createFile("views/layouts/application.gohtml", "templates/application.gohtml.tmpl", nil)
+	if err != nil {
+		return err
+	}
+
+	err = p.createFile("views/default/index.gohtml", "templates/index.gohtml.tmpl", map[string]string{
+		"ApplicationName": applicationName,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = p.createFile("public/css/application.css", "templates/application.css.tmpl", nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// addRouterSetup adds router setup to main.go
+func (p *Project) addRouterSetup() error {
+	// Check if main.go exists
+	if _, err := os.Stat("main.go"); os.IsNotExist(err) {
+		// Create main.go if it doesn't exist
+		return p.createFile("main.go", "templates/main.go.tmpl", nil)
+	}
+
+	// Read the content of main.go
+	content, err := os.ReadFile("main.go")
+	if err != nil {
+		return fmt.Errorf("error reading main.go: %w\n", err)
+	}
+
+	// Check if tracks is already imported
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "github.com/tmeire/tracks") {
+		// Add tracks import
+		contentStr = strings.Replace(contentStr, "import (", "import (\n\t\"github.com/tmeire/tracks\"", 1)
+	}
+
+	// Check if router setup already exists
+	if !strings.Contains(contentStr, "tracks.NewRouter()") {
+		// Find the main function
+		mainFuncIndex := strings.Index(contentStr, "func main() {")
+		if mainFuncIndex == -1 {
+			return fmt.Errorf("could not find main function in main.go")
+		}
+
+		// Find the opening brace of the main function
+		openBraceIndex := strings.Index(contentStr[mainFuncIndex:], "{") + mainFuncIndex
+		if openBraceIndex == -1 {
+			return fmt.Errorf("could not find opening brace of main function in main.go")
+		}
+
+		// Insert router setup after the opening brace
+		routerSetup := "\n\trouter := tracks.NewRouter()\n\n\t// Register the index page\n\trouter.Page(\"/\", \"index\")\n\n\trouter.Run()\n"
+		contentStr = contentStr[:openBraceIndex+1] + routerSetup + contentStr[openBraceIndex+1:]
+	}
+
+	// Write the updated content back to main.go
+	if err := os.WriteFile("main.go", []byte(contentStr), 0644); err != nil {
+		return fmt.Errorf("error writing to main.go: %w\n", err)
+	}
+	return nil
 }
 
 func (p *Project) Assets() string {

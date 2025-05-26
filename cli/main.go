@@ -16,6 +16,7 @@ func main() {
 		Long: `A command line interface for the Tracks application.
 This CLI provides various utilities and commands for managing the Tracks-based systems.`,
 	}
+	rootCmd.AddCommand(cmd.InitCmd())
 	rootCmd.AddCommand(cmd.VersionCmd())
 	rootCmd.AddCommand(cmd.AssetsCmd())
 	rootCmd.AddCommand(cmd.GenerateCmd())

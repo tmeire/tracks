@@ -1,0 +1,27 @@
+package main
+
+import (
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/database/sqlite"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Set up SQLite database
+	db2, err := sqlite.New(filepath.Join(".", "data", "floral.sqlite"))
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer db2.Close()
+
+	err = database.MigrateUp(ctx, db2, database.CentralDatabase)
+	if err != nil {
+		log.Fatalf("failed to apply migrations: %v", err)
+	}
+
+	router := tracks.NewRouter("{{.ApplicationName}}").
+	    Page("/", "index")
+	    Run()
+}
