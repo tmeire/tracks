@@ -2,8 +2,7 @@ package db
 
 import (
 	"context"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"fmt"
 	"time"
 
 	"github.com/tmeire/tracks/database"
@@ -16,9 +15,9 @@ type Store struct {
 }
 
 // NewStore creates a new database-backed session store
-func NewStore() *Store {
+func NewStore(db database.Database) *Store {
 	return &Store{
-		repository: database.NewRepository[*SessionModel](),
+		repository: database.NewRepository[*SessionModel](db),
 	}
 }
 
@@ -27,11 +26,6 @@ func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 	// Load from database
 	model, err := s.repository.FindByID(ctx, id)
 	if err != nil {
-		return nil, false
-	}
-
-	// Not found in the db
-	if model == nil {
 		return nil, false
 	}
 
@@ -60,8 +54,10 @@ func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 
 // Create creates a new session in the database
 func (s *Store) Create(ctx context.Context) session.Session {
+	// Generate a new session ID
 	id := generateSessionID()
 
+	// Create a new session data object
 	sess := &sessionData{
 		store:    s,
 		Id:       id,
@@ -70,6 +66,7 @@ func (s *Store) Create(ctx context.Context) session.Session {
 		FlashNew: make(map[string]string),
 	}
 
+	// Create a new session model
 	now := time.Now()
 	model := &SessionModel{
 		ID:        id,
@@ -79,16 +76,13 @@ func (s *Store) Create(ctx context.Context) session.Session {
 		UpdatedAt: now,
 	}
 
+	// Save to database
 	_, err := s.repository.Create(ctx, model)
 	if err != nil {
 		// Log the error but continue with in-memory session
 		// This ensures the application doesn't break if the database is unavailable
-		trace.SpanFromContext(ctx).AddEvent("error creating session in database",
-			trace.WithAttributes(
-				attribute.String("session_id", id),
-				attribute.String("error", err.Error()),
-			),
-		)
+		// TODO: Add proper logging
+		fmt.Println("Error creating session in database:", err)
 	}
 
 	return sess

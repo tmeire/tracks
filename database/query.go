@@ -68,6 +68,7 @@ type Query interface {
 
 // QueryBuilder represents a SELECT query that can be further refined
 type QueryBuilder[T Model[T]] struct {
+	repo       *Repository[T]
 	fields     []string
 	tableName  string
 	conditions []string
@@ -112,7 +113,7 @@ func (q *QueryBuilder[T]) Offset(offset int) ExecutableQuery[T] {
 func (q *QueryBuilder[T]) Build() (string, []any) {
 	var fields string
 	if len(q.fields) > 0 {
-		fields = strings.Join(q.fields, ", ")
+		fields = "id, " + strings.Join(q.fields, ", ")
 	} else {
 		fields = "*"
 	}
@@ -145,7 +146,7 @@ func (q *QueryBuilder[T]) Execute(ctx context.Context) ([]T, error) {
 
 	query, args := q.Build()
 
-	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
+	rows, err := q.repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +176,7 @@ func (q *QueryBuilder[T]) First(ctx context.Context) (T, error) {
 
 	query, args := q.Build()
 
-	row := FromContext(ctx).QueryRowContext(ctx, query, args...)
+	row := q.repo.db.QueryRowContext(ctx, query, args...)
 
 	var zero T
 	res, err := zero.Scan(row)

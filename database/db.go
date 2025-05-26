@@ -41,6 +41,16 @@ type Scanner interface {
 
 // Model is the interface that all database models must implement
 type Model[T any] interface {
+	// TableName returns the name of the database table for this model
+	TableName() string
+	// Fields returns the list of field names for this model
+	Fields() []string
+	// Values returns the values of the fields in the same order as Fields()
+	Values() []any
 	// Scan scans the values from a row into this model
 	Scan(row Scanner) (T, error)
+	// HasAutoIncrementID returns true if the ID is auto-incremented by the database
+	HasAutoIncrementID() bool
+	// GetID returns the ID of the model
+	GetID() any
 }

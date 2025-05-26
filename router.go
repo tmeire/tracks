@@ -100,7 +100,7 @@ func New(baseDomain string, db database.Database) Router {
 	// Set up sessions for all the domains
 	r.Middleware(session.Middleware(
 		baseDomain,
-		sessiondb.NewStore(),
+		sessiondb.NewStore(db),
 	))
 
 	return r

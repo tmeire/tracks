@@ -49,7 +49,7 @@ func (s *SessionsResource) Create(r *http.Request) (any, error) {
 	}
 
 	// Find the user by email
-	users, err := database.NewRepository[*User]().
+	users, err := database.NewRepositoryFromContext[*User](r.Context()).
 		FindBy(r.Context(), map[string]any{"email": email})
 	if err != nil {
 		return nil, err
