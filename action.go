@@ -5,8 +5,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"html/template"
-	"log"
 	"net/http"
 	"strings"
 
@@ -89,6 +89,8 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 			render = a.renderHTML
 		case "text/plain":
 			render = a.renderText
+		case "*/*":
+			render = a.renderHTML
 		}
 		if render != nil {
 			break
@@ -105,7 +107,7 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 		return
 	}
 
-	log.Println(err)
+	trace.SpanFromContext(r.Context()).RecordError(err)
 
 	// If template rendering fails, fallback to JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -121,9 +123,17 @@ type renderer func(r *http.Request, w http.ResponseWriter, resp *Response) error
 // renderHTML renders an HTML template with the given data
 func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Response) error {
 	if resp.Location != "" {
-		w.Header().Set("Location", resp.Location)
-		w.WriteHeader(http.StatusSeeOther)
-		return nil
+		// TODO: Not really a fan of hardcoding support for HTMX in here. This feels like we need some kind of hook
+		// system here so we can also support libraries like Turbo JS.
+		if r.Header.Get("hx-request") == "true" {
+			w.Header().Set("HX-Redirect", resp.Location)
+			w.WriteHeader(http.StatusAccepted)
+			return nil
+		} else {
+			w.Header().Set("Location", resp.Location)
+			w.WriteHeader(http.StatusSeeOther)
+			return nil
+		}
 	}
 	if a.template == nil {
 		return fmt.Errorf("template not found")
