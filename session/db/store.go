@@ -25,7 +25,7 @@ func NewStore(db database.Database) *Store {
 func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 	// Load from database
 	model, err := s.repository.FindByID(ctx, id)
-	if err != nil {
+	if err != nil || model == nil {
 		return nil, false
 	}
 
