@@ -41,21 +41,45 @@ func (p *Project) models() string {
 	return filepath.Join(p.rootDir, "models")
 }
 
+// GetPackageName parses the go.mod file and returns the package name
+func (p *Project) GetPackageName() (string, error) {
+	goModPath := filepath.Join(p.rootDir, "go.mod")
+
+	// Read the go.mod file
+	content, err := os.ReadFile(goModPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading go.mod file: %v", err)
+	}
+
+	// Parse the content to find the module line
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			// Extract the package name
+			packageName := strings.TrimPrefix(line, "module ")
+			return packageName, nil
+		}
+	}
+
+	return "", fmt.Errorf("module declaration not found in go.mod file")
+}
+
 // AddResource creates a resource with controller, model, and views
-func (p *Project) AddResource(resourceName string) error {
+func (p *Project) AddResource(resourceName string, packageName string) error {
 	// Convert resource name to various forms
 	resourceNameCamel := actionNameToCamelCase(resourceName)
 	resourceNamePlural := resourceName   // For simplicity, we're not handling pluralization
 	resourceNameSingular := resourceName // For simplicity, we're not handling singularization
 
 	// Create the model file
-	err := p.createModelFile(resourceNameCamel, resourceNameSingular, resourceNamePlural)
+	err := p.createModelFile(resourceNameCamel, resourceNameSingular, resourceNamePlural, packageName)
 	if err != nil {
 		return err
 	}
 
 	// Create the controller file
-	err = p.createResourceController(resourceNameCamel, resourceNameSingular, resourceNamePlural)
+	err = p.createResourceController(resourceNameCamel, resourceNameSingular, resourceNamePlural, packageName)
 	if err != nil {
 		return err
 	}
@@ -118,18 +142,19 @@ func (p *Project) createFile(filePath string, templateName string, data map[stri
 }
 
 // createModelFile creates a model file for the resource
-func (p *Project) createModelFile(modelName, resourceSingular, resourcePath string) error {
+func (p *Project) createModelFile(modelName, resourceSingular, resourcePath, packageName string) error {
 	return p.createFile(
 		filepath.Join(p.models(), strings.ToLower(modelName)+".go"),
 		"templates/resource/model.go.tmpl",
 		map[string]string{
 			"ModelName":        modelName,
 			"ResourceSingular": resourceSingular,
+			"Package":          packageName,
 		})
 }
 
 // createResourceController creates a controller file for the resource
-func (p *Project) createResourceController(resourceName, resourceSingular, resourcePath string) error {
+func (p *Project) createResourceController(resourceName, resourceSingular, resourcePath, packageName string) error {
 	return p.createFile(
 		filepath.Join(p.controllers(), strings.ToLower(resourcePath)+".go"),
 		"templates/resource/controller.go.tmpl",
@@ -138,6 +163,7 @@ func (p *Project) createResourceController(resourceName, resourceSingular, resou
 			"ModelName":        resourceName,
 			"ResourcePath":     resourcePath,
 			"ResourceSingular": resourceSingular,
+			"Package":          packageName,
 		})
 }
 

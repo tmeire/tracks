@@ -7,15 +7,15 @@ type Controller interface {
 }
 
 type BaseController struct {
-	Router Router
+	router Router
 }
 
 func (bc *BaseController) Inject(router Router) {
-	bc.Router = router
+	bc.router = router
 }
 
 func (bc BaseController) Scheme() string {
-	if bc.Router.Secure() {
+	if bc.router.Secure() {
 		return "https"
 	}
 	return "http"

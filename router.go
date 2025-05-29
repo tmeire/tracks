@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -68,6 +69,9 @@ func New(baseDomain string, db database.Database) Router {
 		templates: Templates{
 			basedir: "./views",
 			fns: template.FuncMap{
+				"now": func() string {
+					return time.Now().Format("2006-01-02T15:04")
+				},
 				"today": func() string {
 					return time.Now().Format(time.DateOnly)
 				},
@@ -352,21 +356,36 @@ func (r *router) Resource(rs Resource) Router {
 	}
 	name := strings.TrimSuffix(strings.ToLower(rt.Name()), "resource")
 
-	basePath := r.normalize(name)
+	r.registerResource("/", name, rs)
+
+	if withSubresouces, ok := rs.(interface {
+		Subresources() map[string]Resource
+	}); ok {
+		rootPath := "/" + name + fmt.Sprintf("/{%s_id}", name)
+
+		for path, sr := range withSubresouces.Subresources() {
+			r.registerResource(rootPath, path, sr)
+		}
+	}
+	return r
+}
+
+func (r *router) registerResource(rootPath, name string, rs Resource) {
+	pathParamName := fmt.Sprintf(`{%s_id}`, name)
+
+	basePath := filepath.Join(rootPath, r.normalize(name))
 
 	// Register resource actions with the controller name
 	r.GetFunc(basePath+"/", name, "index", rs.Index)
 	r.GetFunc(basePath+"/new", name, "new", rs.New)
 	r.PostFunc(basePath+"/", name, "create", rs.Create)
 
-	r.GetFunc(basePath+"/{id}", name, "show", rs.Show)
-	r.GetFunc(basePath+"/{id}/edit", name, "edit", rs.Edit)
-	r.PutFunc(basePath+"/{id}", name, "update", rs.Update)
-	r.PostFunc(basePath+"/{id}", name, "update", rs.Update)
+	r.GetFunc(basePath+"/"+pathParamName, name, "show", rs.Show)
+	r.GetFunc(basePath+"/"+pathParamName+"/edit", name, "edit", rs.Edit)
+	r.PutFunc(basePath+"/"+pathParamName, name, "update", rs.Update)
+	r.PostFunc(basePath+"/"+pathParamName, name, "update", rs.Update)
 
-	r.DeleteFunc(basePath+"/{id}", name, "destroy", rs.Destroy)
-
-	return r
+	r.DeleteFunc(basePath+"/"+pathParamName, name, "destroy", rs.Destroy)
 }
 
 // Run starts the HTTP server using the router as the handler on the specified port or default port 8080 if unset.
