@@ -1,6 +1,7 @@
 package authentication
 
 import (
+	"context"
 	"encoding/hex"
 	"log/slog"
 	"net/http"
@@ -37,7 +38,7 @@ func (s *User) Values() []any {
 }
 
 // Scan scans the values from a row into this model
-func (*User) Scan(row database.Scanner) (*User, error) {
+func (*User) Scan(_ context.Context, _ *schema, row database.Scanner) (*User, error) {
 	var n User
 
 	err := row.Scan(&n.ID, &n.Email, &n.Name, &n.password, &n.CreatedAt, &n.UpdatedAt)
@@ -112,10 +113,10 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	t := database.NewRepositoryFromContext[*User](r.Context())
+	s := newSchema(database.FromContext(r.Context()))
 
 	// Check if a user with this email already exists
-	existingUsers, err := t.FindBy(r.Context(), map[string]any{"email": email})
+	existingUsers, err := s.users.FindBy(r.Context(), map[string]any{"email": email})
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +145,7 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 	}
 
 	// Save the user to the database
-	user, err = t.Create(r.Context(), user)
+	user, err = s.users.Create(r.Context(), user)
 	if err != nil {
 		return nil, err
 	}

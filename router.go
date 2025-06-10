@@ -75,6 +75,9 @@ func New(baseDomain string, db database.Database) Router {
 				"today": func() string {
 					return time.Now().Format(time.DateOnly)
 				},
+				"add": func(a, b int) int {
+					return a + b
+				},
 				"link": func(s string) template.URL {
 					// TODO: very naive implementation
 					host := baseDomain

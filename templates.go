@@ -23,7 +23,7 @@ func (t *Templates) loadLayout() (*template.Template, error) {
 	layout, err := template.
 		New("application.gohtml").
 		Funcs(t.fns).
-		Option("missingkey=zero").
+		Option("missingkey=error").
 		ParseFiles(filepath.Join(t.basedir, "layouts", "application.gohtml"))
 
 	if err != nil {

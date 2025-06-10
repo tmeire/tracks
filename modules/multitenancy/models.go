@@ -1,6 +1,7 @@
 package multitenancy
 
 import (
+	"context"
 	"github.com/tmeire/tracks/database"
 	"time"
 )
@@ -17,7 +18,7 @@ type Tenant struct {
 
 // TableName returns the name of the database table for this model
 func (t *Tenant) TableName() string {
-	return "tenants"
+	return "Tenants"
 }
 
 // Fields returns the list of field names for this model
@@ -31,7 +32,7 @@ func (t *Tenant) Values() []any {
 }
 
 // Scan scans the values from a row into this model
-func (t *Tenant) Scan(row database.Scanner) (*Tenant, error) {
+func (t *Tenant) Scan(_ context.Context, _ *Schema, row database.Scanner) (*Tenant, error) {
 	var ret = Tenant{}
 	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.DBPath, &ret.CreatedAt, &ret.UpdatedAt)
 	if err != nil {
@@ -76,7 +77,7 @@ func (ur *UserRole) Values() []any {
 }
 
 // Scan scans the values from a row into this model
-func (ur *UserRole) Scan(row database.Scanner) (*UserRole, error) {
+func (ur *UserRole) Scan(_ context.Context, _ *Schema, row database.Scanner) (*UserRole, error) {
 	var res UserRole
 	err := row.Scan(&res.ID, &res.UserID, &res.TenantID, &res.Role, &res.CreatedAt, &res.UpdatedAt)
 	if err != nil {

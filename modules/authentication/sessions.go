@@ -8,6 +8,16 @@ import (
 	"github.com/tmeire/tracks/session"
 )
 
+type schema struct {
+	users *database.Repository[*schema, *User]
+}
+
+func newSchema(db database.Database) *schema {
+	s := &schema{}
+	s.users = database.NewRepository[*schema, *User](db, s)
+	return s
+}
+
 type SessionsResource struct{}
 
 const (
@@ -48,9 +58,10 @@ func (s *SessionsResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
+	schema := newSchema(database.FromContext(r.Context()))
+
 	// Find the user by email
-	users, err := database.NewRepositoryFromContext[*User](r.Context()).
-		FindBy(r.Context(), map[string]any{"email": email})
+	users, err := schema.users.FindBy(r.Context(), map[string]any{"email": email})
 	if err != nil {
 		return nil, err
 	}

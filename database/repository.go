@@ -11,22 +11,18 @@ import (
 )
 
 // Repository provides CRUD operations for a specific model type
-type Repository[T Model[T]] struct {
-	db Database
-}
-
-// NewRepositoryFromContext creates a new repository for the given model type using the database from the context
-func NewRepositoryFromContext[T Model[T]](ctx context.Context) *Repository[T] {
-	return NewRepository[T](FromContext(ctx))
+type Repository[S Schema, T Model[S, T]] struct {
+	db     Database
+	schema S
 }
 
 // NewRepository creates a new repository for the given model type
-func NewRepository[T Model[T]](db Database) *Repository[T] {
-	return &Repository[T]{db: db}
+func NewRepository[S Schema, T Model[S, T]](db Database, schema S) *Repository[S, T] {
+	return &Repository[S, T]{db: db, schema: schema}
 }
 
 // FindAll retrieves all records of the model type from the database
-func (r *Repository[T]) FindAll(ctx context.Context) ([]T, error) {
+func (r *Repository[S, T]) FindAll(ctx context.Context) ([]T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findall")
 	defer span.End()
 
@@ -44,7 +40,7 @@ func (r *Repository[T]) FindAll(ctx context.Context) ([]T, error) {
 
 	var results []T
 	for rows.Next() {
-		model, err := zero.Scan(rows)
+		model, err := zero.Scan(ctx, r.schema, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +51,7 @@ func (r *Repository[T]) FindAll(ctx context.Context) ([]T, error) {
 }
 
 // FindByID retrieves a record by its ID
-func (r *Repository[T]) FindByID(ctx context.Context, id any) (T, error) {
+func (r *Repository[S, T]) FindByID(ctx context.Context, id any) (T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findbyid")
 	defer span.End()
 
@@ -67,7 +63,7 @@ func (r *Repository[T]) FindByID(ctx context.Context, id any) (T, error) {
 
 	row := r.db.QueryRowContext(ctx, query, id)
 
-	model, err := zero.Scan(row)
+	model, err := zero.Scan(ctx, r.schema, row)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		var empty T
 		return empty, err
@@ -77,7 +73,7 @@ func (r *Repository[T]) FindByID(ctx context.Context, id any) (T, error) {
 }
 
 // Create inserts a new record into the database
-func (r *Repository[T]) Create(ctx context.Context, model T) (T, error) {
+func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.create")
 	defer span.End()
 
@@ -122,7 +118,7 @@ func (r *Repository[T]) Create(ctx context.Context, model T) (T, error) {
 }
 
 // Update updates an existing record in the database
-func (r *Repository[T]) Update(ctx context.Context, model T) error {
+func (r *Repository[S, T]) Update(ctx context.Context, model T) error {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.update")
 	defer span.End()
 
@@ -150,7 +146,7 @@ func (r *Repository[T]) Update(ctx context.Context, model T) error {
 }
 
 // Delete removes a record from the database
-func (r *Repository[T]) Delete(ctx context.Context, model T) error {
+func (r *Repository[S, T]) Delete(ctx context.Context, model T) error {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.delete")
 	defer span.End()
 
@@ -161,9 +157,9 @@ func (r *Repository[T]) Delete(ctx context.Context, model T) error {
 }
 
 // Select creates a new QueryBuilder with the specified fields
-func (r *Repository[T]) Select(fields ...string) WhereableQuery[T] {
+func (r *Repository[S, T]) Select(fields ...string) WhereableQuery[S, T] {
 	var zero T
-	return &QueryBuilder[T]{
+	return &QueryBuilder[S, T]{
 		repo:      r,
 		fields:    fields,
 		tableName: zero.TableName(),
@@ -171,7 +167,7 @@ func (r *Repository[T]) Select(fields ...string) WhereableQuery[T] {
 }
 
 // FindBy retrieves records that match the given search criteria
-func (r *Repository[T]) FindBy(ctx context.Context, criteria map[string]any) ([]T, error) {
+func (r *Repository[S, T]) FindBy(ctx context.Context, criteria map[string]any) ([]T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findby")
 	defer span.End()
 
@@ -204,7 +200,7 @@ func (r *Repository[T]) FindBy(ctx context.Context, criteria map[string]any) ([]
 
 	var results []T
 	for rows.Next() {
-		model, err := zero.Scan(rows)
+		model, err := zero.Scan(ctx, r.schema, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +211,7 @@ func (r *Repository[T]) FindBy(ctx context.Context, criteria map[string]any) ([]
 }
 
 // Count returns the total number of records in the table
-func (r *Repository[T]) Count(ctx context.Context) (int, error) {
+func (r *Repository[S, T]) Count(ctx context.Context) (int, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.count")
 	defer span.End()
 

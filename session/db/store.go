@@ -11,14 +11,15 @@ import (
 
 // Store implements the session.Store interface using a database
 type Store struct {
-	repository *database.Repository[*SessionModel]
+	repository *database.Repository[*Store, *SessionModel]
 }
 
 // NewStore creates a new database-backed session store
 func NewStore(db database.Database) *Store {
-	return &Store{
-		repository: database.NewRepository[*SessionModel](db),
-	}
+	s := &Store{}
+	s.repository = database.NewRepository[*Store, *SessionModel](db, s)
+
+	return s
 }
 
 // Load retrieves a session from the database by ID

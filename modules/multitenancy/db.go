@@ -32,13 +32,27 @@ func injectTenantDB(tenants *TenantRepository) func(handler http.Handler) http.H
 	}
 }
 
-// TenantRepository manages database connections for tenants
+type Schema struct {
+	Tenants   *database.Repository[*Schema, *Tenant]
+	UserRoles *database.Repository[*Schema, *UserRole]
+}
+
+func NewSchema(db database.Database) *Schema {
+	s := &Schema{}
+	s.Tenants = database.NewRepository[*Schema, *Tenant](db, s)
+	s.UserRoles = database.NewRepository[*Schema, *UserRole](db, s)
+
+	return s
+}
+
+// TenantRepository manages database connections for Tenants
 type TenantRepository struct {
 	centralDB     database.Database
 	tenantDBs     map[int]database.Database
 	tenantsMutex  sync.RWMutex
 	storageDir    string
 	migrationsDir string
+	schema        *Schema
 }
 
 // NewTenantRepository creates a new TenantRepository instance
@@ -53,6 +67,7 @@ func NewTenantRepositoryWithMigrations(centralDB database.Database, baseDir stri
 		tenantDBs:     make(map[int]database.Database),
 		storageDir:    baseDir,
 		migrationsDir: migrationsDir,
+		schema:        NewSchema(centralDB),
 	}
 }
 
@@ -86,8 +101,7 @@ func (t *TenantRepository) createTenantDB(ctx context.Context, tenantID int) (da
 	}
 
 	// GetFunc tenant information from the central database
-	tenantRepo := database.NewRepository[*Tenant](t.centralDB)
-	tenant, err := tenantRepo.FindByID(ctx, tenantID)
+	tenant, err := t.schema.Tenants.FindByID(ctx, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find tenant: %w", err)
 	}
@@ -115,12 +129,11 @@ func (t *TenantRepository) CreateTenant(ctx context.Context, name, subdomain str
 	tenant := &Tenant{
 		Name:      name,
 		Subdomain: subdomain,
-		DBPath:    filepath.Join(t.storageDir, "tenants", subdomain, "tenant.sqlite"),
+		DBPath:    filepath.Join(t.storageDir, "Tenants", subdomain, "tenant.sqlite"),
 	}
 
 	// Save the tenant to the central database
-	tenantRepo := database.NewRepository[*Tenant](t.centralDB)
-	tenant, err := tenantRepo.Create(ctx, tenant)
+	tenant, err := t.schema.Tenants.Create(ctx, tenant)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tenant: %w", err)
 	}
@@ -163,8 +176,7 @@ func (t *TenantRepository) Close() error {
 
 // GetTenantBySubdomain returns a tenant by its subdomain
 func (t *TenantRepository) GetTenantBySubdomain(ctx context.Context, subdomain string) (*Tenant, error) {
-	tenantRepo := database.NewRepository[*Tenant](t.centralDB)
-	tenants, err := tenantRepo.FindBy(ctx, map[string]any{"subdomain": subdomain})
+	tenants, err := t.schema.Tenants.FindBy(ctx, map[string]any{"subdomain": subdomain})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find tenant: %w", err)
 	}

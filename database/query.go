@@ -10,10 +10,10 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-type WhereableQuery[T Model[T]] interface {
-	OrderableQuery[T]
+type WhereableQuery[S Schema, T Model[S, T]] interface {
+	OrderableQuery[S, T]
 
-	Where(string, ...any) WhereableQuery[T]
+	Where(string, ...any) WhereableQuery[S, T]
 }
 
 type OrderDirection byte
@@ -34,26 +34,26 @@ const (
 	DESC
 )
 
-type OrderableQuery[T Model[T]] interface {
-	LimitableQuery[T]
+type OrderableQuery[S Schema, T Model[S, T]] interface {
+	LimitableQuery[S, T]
 
-	Order(string, OrderDirection) OrderableQuery[T]
+	Order(string, OrderDirection) OrderableQuery[S, T]
 }
 
-type LimitableQuery[T Model[T]] interface {
-	ExecutableQuery[T]
+type LimitableQuery[S Schema, T Model[S, T]] interface {
+	ExecutableQuery[S, T]
 
-	Limit(limit int) OffsetableQuery[T]
+	Limit(limit int) OffsetableQuery[S, T]
 }
 
-type OffsetableQuery[T Model[T]] interface {
-	ExecutableQuery[T]
+type OffsetableQuery[S Schema, T Model[S, T]] interface {
+	ExecutableQuery[S, T]
 
-	Offset(offset int) ExecutableQuery[T]
+	Offset(offset int) ExecutableQuery[S, T]
 }
 
 // ExecutableQuery is an interface for queries that can be executed
-type ExecutableQuery[T Model[T]] interface {
+type ExecutableQuery[S Schema, T Model[S, T]] interface {
 	Query
 	// Execute runs the query and returns the results
 	Execute(ctx context.Context) ([]T, error)
@@ -67,8 +67,8 @@ type Query interface {
 }
 
 // QueryBuilder represents a SELECT query that can be further refined
-type QueryBuilder[T Model[T]] struct {
-	repo       *Repository[T]
+type QueryBuilder[S Schema, T Model[S, T]] struct {
+	repo       *Repository[S, T]
 	fields     []string
 	tableName  string
 	conditions []string
@@ -81,21 +81,21 @@ type QueryBuilder[T Model[T]] struct {
 }
 
 // Where adds WHERE conditions to the query
-func (q *QueryBuilder[T]) Where(condition string, args ...any) WhereableQuery[T] {
+func (q *QueryBuilder[S, T]) Where(condition string, args ...any) WhereableQuery[S, T] {
 	q.conditions = append(q.conditions, condition)
 	q.args = append(q.args, args...)
 	return q
 }
 
 // Order adds ORDER BY clause to the query
-func (q *QueryBuilder[T]) Order(orderBy string, direction OrderDirection) OrderableQuery[T] {
+func (q *QueryBuilder[S, T]) Order(orderBy string, direction OrderDirection) OrderableQuery[S, T] {
 	q.orderBy = append(q.orderBy, orderBy+" "+direction.String())
 	return q
 }
 
 // Limit adds LIMIT clause to the query
 // TODO: figure out how to handle limit = 0 case
-func (q *QueryBuilder[T]) Limit(limit int) OffsetableQuery[T] {
+func (q *QueryBuilder[S, T]) Limit(limit int) OffsetableQuery[S, T] {
 	q.limit = limit
 	q.hasLimit = true
 	return q
@@ -103,14 +103,14 @@ func (q *QueryBuilder[T]) Limit(limit int) OffsetableQuery[T] {
 
 // Offset adds OFFSET clause to the query
 // TODO: does it make a difference to have "OFFSET 0" or no OFFSET clause at all?
-func (q *QueryBuilder[T]) Offset(offset int) ExecutableQuery[T] {
+func (q *QueryBuilder[S, T]) Offset(offset int) ExecutableQuery[S, T] {
 	q.offset = offset
 	q.hasOffset = true
 	return q
 }
 
 // Build constructs the SQL query string and arguments
-func (q *QueryBuilder[T]) Build() (string, []any) {
+func (q *QueryBuilder[S, T]) Build() (string, []any) {
 	var fields string
 	if len(q.fields) > 0 {
 		fields = "id, " + strings.Join(q.fields, ", ")
@@ -140,7 +140,7 @@ func (q *QueryBuilder[T]) Build() (string, []any) {
 }
 
 // Execute runs the query and returns the results
-func (q *QueryBuilder[T]) Execute(ctx context.Context) ([]T, error) {
+func (q *QueryBuilder[S, T]) Execute(ctx context.Context) ([]T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "querybuilder.execute")
 	defer span.End()
 
@@ -155,7 +155,7 @@ func (q *QueryBuilder[T]) Execute(ctx context.Context) ([]T, error) {
 	var zero T
 	var results []T
 	for rows.Next() {
-		model, err := zero.Scan(rows)
+		model, err := zero.Scan(ctx, q.repo.schema, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +166,7 @@ func (q *QueryBuilder[T]) Execute(ctx context.Context) ([]T, error) {
 }
 
 // First runs the query and returns the first result
-func (q *QueryBuilder[T]) First(ctx context.Context) (T, error) {
+func (q *QueryBuilder[S, T]) First(ctx context.Context) (T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "querybuilder.first")
 	defer span.End()
 
@@ -179,7 +179,7 @@ func (q *QueryBuilder[T]) First(ctx context.Context) (T, error) {
 	row := q.repo.db.QueryRowContext(ctx, query, args...)
 
 	var zero T
-	res, err := zero.Scan(row)
+	res, err := zero.Scan(ctx, q.repo.schema, row)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return zero, err
 	}

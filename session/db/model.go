@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/tmeire/tracks/database"
 	"time"
@@ -31,7 +32,7 @@ func (s *SessionModel) Values() []any {
 }
 
 // Scan scans the values from a row into this model
-func (s *SessionModel) Scan(row database.Scanner) (*SessionModel, error) {
+func (s *SessionModel) Scan(_ context.Context, _ *Store, row database.Scanner) (*SessionModel, error) {
 	var model SessionModel
 	err := row.Scan(&model.ID, &model.Data, &model.Flash, &model.CreatedAt, &model.UpdatedAt)
 	if err != nil {
