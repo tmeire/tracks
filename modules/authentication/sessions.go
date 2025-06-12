@@ -12,9 +12,9 @@ type schema struct {
 	users *database.Repository[*schema, *User]
 }
 
-func newSchema(db database.Database) *schema {
+func newSchema() *schema {
 	s := &schema{}
-	s.users = database.NewRepository[*schema, *User](db, s)
+	s.users = database.NewRepository[*schema, *User](s)
 	return s
 }
 
@@ -58,7 +58,7 @@ func (s *SessionsResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	schema := newSchema(database.FromContext(r.Context()))
+	schema := newSchema()
 
 	// Find the user by email
 	users, err := schema.users.FindBy(r.Context(), map[string]any{"email": email})

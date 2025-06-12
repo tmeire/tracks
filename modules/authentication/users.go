@@ -113,7 +113,7 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	s := newSchema(database.FromContext(r.Context()))
+	s := newSchema()
 
 	// Check if a user with this email already exists
 	existingUsers, err := s.users.FindBy(r.Context(), map[string]any{"email": email})

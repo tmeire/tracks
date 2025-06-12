@@ -37,10 +37,10 @@ type Schema struct {
 	UserRoles *database.Repository[*Schema, *UserRole]
 }
 
-func NewSchema(db database.Database) *Schema {
+func NewSchema() *Schema {
 	s := &Schema{}
-	s.Tenants = database.NewRepository[*Schema, *Tenant](db, s)
-	s.UserRoles = database.NewRepository[*Schema, *UserRole](db, s)
+	s.Tenants = database.NewRepository[*Schema, *Tenant](s)
+	s.UserRoles = database.NewRepository[*Schema, *UserRole](s)
 
 	return s
 }
@@ -67,7 +67,7 @@ func NewTenantRepositoryWithMigrations(centralDB database.Database, baseDir stri
 		tenantDBs:     make(map[int]database.Database),
 		storageDir:    baseDir,
 		migrationsDir: migrationsDir,
-		schema:        NewSchema(centralDB),
+		schema:        NewSchema(),
 	}
 }
 

@@ -12,13 +12,12 @@ import (
 
 // Repository provides CRUD operations for a specific model type
 type Repository[S Schema, T Model[S, T]] struct {
-	db     Database
 	schema S
 }
 
 // NewRepository creates a new repository for the given model type
-func NewRepository[S Schema, T Model[S, T]](db Database, schema S) *Repository[S, T] {
-	return &Repository[S, T]{db: db, schema: schema}
+func NewRepository[S Schema, T Model[S, T]](schema S) *Repository[S, T] {
+	return &Repository[S, T]{schema: schema}
 }
 
 // FindAll retrieves all records of the model type from the database
@@ -32,7 +31,7 @@ func (r *Repository[S, T]) FindAll(ctx context.Context) ([]T, error) {
 		strings.Join(zero.Fields(), ", "),
 		zero.TableName())
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := FromContext(ctx).QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +60,7 @@ func (r *Repository[S, T]) FindByID(ctx context.Context, id any) (T, error) {
 		strings.Join(zero.Fields(), ", "),
 		zero.TableName())
 
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := FromContext(ctx).QueryRowContext(ctx, query, id)
 
 	model, err := zero.Scan(ctx, r.schema, row)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -99,7 +98,7 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 		strings.Join(fields, ", "),
 		strings.Join(placeholders, ", "))
 
-	res, err := r.db.ExecContext(ctx, query, values...)
+	res, err := FromContext(ctx).ExecContext(ctx, query, values...)
 	if err != nil {
 		return zero, err
 	}
@@ -141,7 +140,7 @@ func (r *Repository[S, T]) Update(ctx context.Context, model T) error {
 	// Add ID as the last argument for the WHERE clause
 	args = append(args, model.GetID())
 
-	_, err := r.db.ExecContext(ctx, query, args...)
+	_, err := FromContext(ctx).ExecContext(ctx, query, args...)
 	return err
 }
 
@@ -152,7 +151,7 @@ func (r *Repository[S, T]) Delete(ctx context.Context, model T) error {
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", model.TableName())
 
-	_, err := r.db.ExecContext(ctx, query, model.GetID())
+	_, err := FromContext(ctx).ExecContext(ctx, query, model.GetID())
 	return err
 }
 
@@ -192,7 +191,7 @@ func (r *Repository[S, T]) FindBy(ctx context.Context, criteria map[string]any) 
 		zero.TableName(),
 		whereClause)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +217,7 @@ func (r *Repository[S, T]) Count(ctx context.Context) (int, error) {
 	var zero T
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", zero.TableName())
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := FromContext(ctx).QueryContext(ctx, query)
 	if err != nil {
 		return 0, err
 	}
