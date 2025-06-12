@@ -75,6 +75,9 @@ func New(baseDomain string, db database.Database) Router {
 				"today": func() string {
 					return time.Now().Format(time.DateOnly)
 				},
+				"year": func() string {
+					return time.Now().Format("2006")
+				},
 				"add": func(a, b int) int {
 					return a + b
 				},
