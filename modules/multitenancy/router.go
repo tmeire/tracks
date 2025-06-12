@@ -135,8 +135,8 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Find the tenant by subdomain
-	tenant, err := r.tenantDB.GetTenantBySubdomain(req.Context(), subdomain)
+	// Find the tenant by subdomain, add the central db to the context
+	tenant, err := r.tenantDB.GetTenantBySubdomain(database.WithDB(req.Context(), r.Database()), subdomain)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return

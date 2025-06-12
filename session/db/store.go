@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"go.opentelemetry.io/otel/trace"
 	"time"
 
 	"github.com/tmeire/tracks/database"
@@ -11,12 +12,15 @@ import (
 
 // Store implements the session.Store interface using a database
 type Store struct {
+	database   database.Database
 	repository *database.Repository[*Store, *SessionModel]
 }
 
 // NewStore creates a new database-backed session store
 func NewStore(db database.Database) *Store {
-	s := &Store{}
+	s := &Store{
+		database: db,
+	}
 	s.repository = database.NewRepository[*Store, *SessionModel](s)
 
 	return s
@@ -178,13 +182,16 @@ func (s *sessionData) Save(ctx context.Context) error {
 
 // Invalidate invalidates the session
 func (s *sessionData) Invalidate(ctx context.Context) {
+	ctx = database.WithDB(ctx, s.store.database)
+
 	// DeleteFunc from database
 	model := &SessionModel{
 		ID: s.Id,
 	}
 	err := s.store.repository.Delete(ctx, model)
 	if err != nil {
-		// TODO: Add proper logging
+		span := trace.SpanFromContext(ctx)
+		span.RecordError(err)
 	}
 
 	// Generate a new session ID
@@ -203,7 +210,8 @@ func (s *sessionData) Invalidate(ctx context.Context) {
 	}
 	_, err = s.store.repository.Create(ctx, newModel)
 	if err != nil {
-		// TODO: Add proper logging
+		span := trace.SpanFromContext(ctx)
+		span.RecordError(err)
 	}
 }
 
