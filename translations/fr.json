@@ -1,0 +1,22 @@
+{
+  "welcome": {
+    "message": "Bienvenue dans notre application"
+  },
+  "some": {
+    "message": "C'est un message"
+  },
+  "user": {
+    "greeting": "Bonjour, %s!"
+  },
+  "pricing": {
+    "plans": {
+      "freelance": "Freelance",
+      "basic": "Basique",
+      "pro": "Professionnel"
+    }
+  },
+
+  "welcome.message": "Bienvenue dans notre application",
+  "some.message": "C'est un message",
+  "user.greeting": "Bonjour, %s!"
+}

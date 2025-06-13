@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/tmeire/tracks/i18n"
 	"github.com/tmeire/tracks/session"
 )
 
@@ -20,18 +21,20 @@ import (
 // If the first return value is an opaque data object (not a Response), the status will be set to OK.
 type Action func(r *http.Request) (any, error)
 
-func (a Action) wrap(controllerName, actionName string, tpl *template.Template) *action {
+func (a Action) wrap(controllerName, actionName string, tpl *template.Template, translator *i18n.Translator) *action {
 	return &action{
-		name:     controllerName + "#" + actionName,
-		template: tpl,
-		impl:     a,
+		name:       controllerName + "#" + actionName,
+		template:   tpl,
+		impl:       a,
+		translator: translator,
 	}
 }
 
 type action struct {
-	name     string
-	template *template.Template
-	impl     Action
+	name       string
+	template   *template.Template
+	impl       Action
+	translator *i18n.Translator
 }
 
 func (a *action) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -142,11 +145,26 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(resp.StatusCode)
 
-	_, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
 	defer span.End()
 
+	lang := i18n.LanguageFromContext(ctx)
+
+	tpl, err := a.template.Clone()
+	if err != nil {
+		return err
+	}
+	tpl.Funcs(template.FuncMap{
+		"t": func(key string, args ...interface{}) string {
+			if len(args) == 0 {
+				return a.translator.Translate(lang, key)
+			}
+			return a.translator.TranslateWithParams(lang, key, args...)
+		},
+	})
+
 	// TODO: Write to a buffer and only write to the response on success
-	return a.template.ExecuteTemplate(w, "application.gohtml", struct {
+	return tpl.ExecuteTemplate(w, "application.gohtml", struct {
 		Title   string
 		Session session.Session
 		Flash   map[string]string

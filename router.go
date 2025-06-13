@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/i18n"
 	"github.com/tmeire/tracks/otel"
 	"github.com/tmeire/tracks/session"
 	sessiondb "github.com/tmeire/tracks/session/db"
@@ -50,6 +51,7 @@ type router struct {
 	mux         *http.ServeMux
 	middlewares *middlewares
 	templates   Templates
+	translator  *i18n.Translator
 }
 
 // New creates a new router with a database-backed session store
@@ -60,15 +62,33 @@ func New(baseDomain string, db database.Database) Router {
 		port = 8080
 	}
 
+	// Initialize the translator with English as the default language
+	translator := i18n.NewTranslator("en")
+
+	// Try to load translations from the translations directory
+	// TODO:
+	err = translator.LoadTranslations("./translations")
+	if err != nil {
+		log.Printf("Failed to load translations: %v", err)
+		// Continue without translations, using keys as fallback
+	}
+
 	r := &router{
 		port:        port,
 		baseDomain:  baseDomain,
 		database:    db,
 		mux:         http.NewServeMux(),
 		middlewares: &middlewares{},
+		translator:  translator,
 		templates: Templates{
 			basedir: "./views",
 			fns: template.FuncMap{
+				"t": func(key string) template.HTML {
+					// This is a placeholder implementation to make sure the templates can be loaded on boot.
+					// Every request will overwrite this func with a method that contains the request context to make
+					// sure it's able to access the requested language.
+					return template.HTML(key)
+				},
 				"now": func() string {
 					return time.Now().Format("2006-01-02T15:04")
 				},
@@ -107,6 +127,9 @@ func New(baseDomain string, db database.Database) Router {
 
 	r.Middleware(database.Middleware(db))
 
+	// Set up i18n middleware for language detection
+	r.Middleware(i18n.Middleware("en"))
+
 	// Set up sessions for all the domains
 	r.Middleware(session.Middleware(
 		baseDomain,
@@ -124,6 +147,7 @@ func (r *router) Clone() Router {
 		mux:         http.NewServeMux(),
 		middlewares: r.middlewares,
 		templates:   r.templates,
+		translator:  r.translator,
 	}
 }
 
@@ -175,7 +199,7 @@ func (r *router) serve(method, urlPath string, controller, action string, a Acti
 
 	tpl := template.Must(r.templates.Load(controller, action))
 
-	r.mux.Handle(pattern, r.middlewares.Wrap(a.wrap(controller, action, tpl)))
+	r.mux.Handle(pattern, r.middlewares.Wrap(a.wrap(controller, action, tpl, r.translator)))
 }
 
 // static registers a directory to serve static files from.
