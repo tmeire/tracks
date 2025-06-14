@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+type schema struct {
+	products Repository[*schema, TestProduct]
+}
+
 // TestProduct is a test model that implements the Model interface
 type TestProduct struct {
 	ID    int     `json:"id"`
@@ -30,7 +34,7 @@ func (p TestProduct) Values() []any {
 }
 
 // Scan scans the values from a row into this model
-func (p TestProduct) Scan(row Scanner) (TestProduct, error) {
+func (p TestProduct) Scan(ctx context.Context, schema *schema, row Scanner) (TestProduct, error) {
 	var product TestProduct
 	err := row.Scan(&product.ID, &product.Name, &product.Price)
 	if err != nil {
@@ -82,13 +86,13 @@ func (m *MockDB) Close() error {
 func TestQueryBuilding(t *testing.T) {
 	tests := []struct {
 		name         string
-		setupQuery   func(*Repository[TestProduct]) Query
+		setupQuery   func(*Repository[*schema, TestProduct]) Query
 		expectedSQL  string
 		expectedArgs []any
 	}{
 		{
 			name: "Simple all fields",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select()
 			},
 			expectedSQL:  "SELECT * FROM products",
@@ -96,7 +100,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Simple Select",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price")
 			},
 			expectedSQL:  "SELECT id, name, price FROM products",
@@ -104,7 +108,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Select with single Where",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").Where("price > ?", 15.0)
 			},
 			expectedSQL:  "SELECT id, name, price FROM products WHERE price > ?",
@@ -112,7 +116,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Select with single composited Where",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").Where("price > ? AND name = ?", 15.0, "John")
 			},
 			expectedSQL:  "SELECT id, name, price FROM products WHERE price > ? AND name = ?",
@@ -120,7 +124,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Select with Where",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").Where("price > ?", 15.0).Where("name = ?", "John")
 			},
 			expectedSQL:  "SELECT id, name, price FROM products WHERE price > ? AND name = ?",
@@ -128,7 +132,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Select with Order",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").Order("price", DESC)
 			},
 			expectedSQL:  "SELECT id, name, price FROM products ORDER BY price DESC",
@@ -136,7 +140,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Select with multiple Order",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").Order("name", ASC).Order("price", DESC)
 			},
 			expectedSQL:  "SELECT id, name, price FROM products ORDER BY name ASC, price DESC",
@@ -144,7 +148,7 @@ func TestQueryBuilding(t *testing.T) {
 		},
 		{
 			name: "Select with Limit",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").Limit(1)
 			},
 			expectedSQL:  "SELECT id, name, price FROM products LIMIT 1",
@@ -153,7 +157,7 @@ func TestQueryBuilding(t *testing.T) {
 		// Test proper chaining of methods
 		{
 			name: "Select with all clauses chained",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").
 					Where("price > ?", 5.0).
 					Order("price", DESC).
@@ -166,7 +170,7 @@ func TestQueryBuilding(t *testing.T) {
 		// Test chaining in different order
 		{
 			name: "Select with clauses chained in different order",
-			setupQuery: func(repo *Repository[TestProduct]) Query {
+			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select("name", "price").
 					Where("price < ?", 100.0).
 					Order("name", ASC).
@@ -180,11 +184,9 @@ func TestQueryBuilding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock database
-			mockDB := &MockDB{}
-
 			// Create a repository with the mock database
-			repo := NewRepository[TestProduct](mockDB)
+			s := &schema{}
+			repo := NewRepository[*schema, TestProduct](s)
 
 			// Setup the query
 			query := tt.setupQuery(repo)
