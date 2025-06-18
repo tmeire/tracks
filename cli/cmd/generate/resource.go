@@ -33,8 +33,14 @@ This command:
 
 			fmt.Printf("Generating resource %s\n", resourceName)
 
+			packageName, err := p.GetPackageName()
+			if err != nil {
+				fmt.Printf("Error reading package name: %v\n", err)
+				os.Exit(1)
+			}
+
 			// Create the resource
-			err = p.AddResource(resourceName)
+			err = p.AddResource(resourceName, packageName)
 			if err != nil {
 				fmt.Printf("Error creating resource: %v\n", err)
 				os.Exit(1)

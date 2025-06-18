@@ -32,7 +32,7 @@ func UpCmd() *cobra.Command {
 		Short: "Apply pending migrations",
 		Long:  `Apply all pending database migrations or migrations from a specific source.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			var databaseType database.DatabaseType
+			var databaseType database.Type
 			switch dbType {
 			case "central":
 				databaseType = database.CentralDatabase
@@ -59,7 +59,7 @@ func DownCmd() *cobra.Command {
 		Short: "Revert migrations",
 		Long:  `Revert the most recent migration.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			var databaseType database.DatabaseType
+			var databaseType database.Type
 			switch dbType {
 			case "central":
 				databaseType = database.CentralDatabase
@@ -86,7 +86,7 @@ func StatusCmd() *cobra.Command {
 		Short: "Show migration status",
 		Long:  `Show the status of all migrations.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			var databaseType database.DatabaseType
+			var databaseType database.Type
 			switch dbType {
 			case "central":
 				databaseType = database.CentralDatabase

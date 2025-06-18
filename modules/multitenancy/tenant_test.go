@@ -29,13 +29,13 @@ func TestTenantDB(t *testing.T) {
 	defer centralDB.Close()
 
 	// Apply migrations to the central database
-	err = database.MigrateUpDir(ctx, centralDB, database.CentralDatabase, "../../../../migrations/central")
+	err = database.MigrateUpDir(ctx, centralDB, database.CentralDatabase, "./testdata/migrations/central")
 	if err != nil {
 		t.Fatalf("Failed to apply migrations to central database: %v", err)
 	}
 
 	// Create a tenant database manager
-	tenantDB := multitenancy.NewTenantRepositoryWithMigrations(centralDB, tempDir, "../../../../migrations")
+	tenantDB := multitenancy.NewTenantRepositoryWithMigrations(centralDB, tempDir, "./testdata/migrations/")
 	defer tenantDB.Close()
 
 	// Create a tenant

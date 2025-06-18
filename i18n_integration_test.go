@@ -57,7 +57,7 @@ func TestTranslationFunction(t *testing.T) {
 
 	// Create a template with the translation function
 	tmpl := template.New("test")
-	
+
 	// Add the translation function to the template
 	tmpl = tmpl.Funcs(template.FuncMap{
 		"t": func(key string, args ...interface{}) string {
@@ -101,13 +101,13 @@ func TestTranslationFunction(t *testing.T) {
 		// Create a request with English language
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-		
+
 		// Add language to context
 		ctx := i18n.WithLanguage(req.Context(), "en")
 		req = req.WithContext(ctx)
 
 		// Parse a template with translation
-		tmpl, err := tmpl.Parse(`{{ t "welcome" . }}`)
+		tmpl, err := template.Must(tmpl.Clone()).Parse(`{{ t "welcome" . }}`)
 		if err != nil {
 			t.Fatalf("Failed to parse template: %v", err)
 		}
@@ -130,13 +130,13 @@ func TestTranslationFunction(t *testing.T) {
 		// Create a request with French language
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept-Language", "fr-FR,fr;q=0.9")
-		
+
 		// Add language to context
 		ctx := i18n.WithLanguage(req.Context(), "fr")
 		req = req.WithContext(ctx)
 
 		// Parse a template with translation
-		tmpl, err := tmpl.Parse(`{{ t "welcome" . }}`)
+		tmpl, err := template.Must(tmpl.Clone()).Parse(`{{ t "welcome" . }}`)
 		if err != nil {
 			t.Fatalf("Failed to parse template: %v", err)
 		}
@@ -159,13 +159,13 @@ func TestTranslationFunction(t *testing.T) {
 		// Create a request with English language
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-		
+
 		// Add language to context
 		ctx := i18n.WithLanguage(req.Context(), "en")
 		req = req.WithContext(ctx)
 
 		// Parse a template with translation and parameters
-		tmpl, err := tmpl.Parse(`{{ t "greeting" "John" . }}`)
+		tmpl, err := template.Must(tmpl.Clone()).Parse(`{{ t "greeting" "John" . }}`)
 		if err != nil {
 			t.Fatalf("Failed to parse template: %v", err)
 		}
@@ -188,13 +188,13 @@ func TestTranslationFunction(t *testing.T) {
 		// Create a request with English language
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-		
+
 		// Add language to context
 		ctx := i18n.WithLanguage(req.Context(), "en")
 		req = req.WithContext(ctx)
 
 		// Parse a template with a missing translation key
-		tmpl, err := tmpl.Parse(`{{ t "missing_key" . }}`)
+		tmpl, err := template.Must(tmpl.Clone()).Parse(`{{ t "missing_key" . }}`)
 		if err != nil {
 			t.Fatalf("Failed to parse template: %v", err)
 		}
@@ -217,13 +217,13 @@ func TestTranslationFunction(t *testing.T) {
 		// Create a request with a language that doesn't have translations
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept-Language", "es-ES,es;q=0.9")
-		
+
 		// Add language to context
 		ctx := i18n.WithLanguage(req.Context(), "es")
 		req = req.WithContext(ctx)
 
 		// Parse a template with translation
-		tmpl, err := tmpl.Parse(`{{ t "welcome" . }}`)
+		tmpl, err := template.Must(tmpl.Clone()).Parse(`{{ t "welcome" . }}`)
 		if err != nil {
 			t.Fatalf("Failed to parse template: %v", err)
 		}
@@ -244,7 +244,7 @@ func TestTranslationFunction(t *testing.T) {
 	// Test with no request in context
 	t.Run("No request in context", func(t *testing.T) {
 		// Parse a template with translation
-		tmpl, err := tmpl.Parse(`{{ t "welcome" }}`)
+		tmpl, err := template.Must(tmpl.Clone()).Parse(`{{ t "welcome" }}`)
 		if err != nil {
 			t.Fatalf("Failed to parse template: %v", err)
 		}

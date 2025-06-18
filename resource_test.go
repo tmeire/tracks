@@ -2,14 +2,12 @@ package tracks
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
 	"testing"
 
-	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/database/sqlite"
 )
 
@@ -115,11 +113,6 @@ func TestResource(t *testing.T) {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
 	defer tempDB.Close()
-
-	err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
-	if err != nil {
-		log.Fatalf("failed to apply migrations: %v", err)
-	}
 
 	// Create a new router
 	router := New("test.local", tempDB)

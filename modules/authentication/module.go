@@ -59,13 +59,16 @@ func authenticate(domain string, port int, secure bool) tracks.Middleware {
 //   - tracks.Router: The modified router with authentication routes and middleware
 func Register(r tracks.Router) tracks.Router {
 	sr := SessionsResource{}
-	ur := UsersResource{}
+	ur := UsersResource{
+		schema: newSchema(),
+	}
 
 	return r.
 		// Login screen
 		GetFunc("/sessions/new", "sessions", "new", sr.New).
 		// Login action
 		PostFunc("/sessions/", "sessions", "create", sr.Create).
+		GetFunc("/users/", "users", "index", ur.Index).
 		// Registration page
 		GetFunc("/users/new", "users", "new", ur.New).
 		// Registration action

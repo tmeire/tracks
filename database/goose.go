@@ -11,24 +11,24 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-// DatabaseType represents the type of database (central or tenant)
-type DatabaseType string
+// Type represents the type of database (central or tenant)
+type Type string
 
 const (
 	// CentralDatabase represents the central database
-	CentralDatabase DatabaseType = "central"
+	CentralDatabase Type = "central"
 	// TenantDatabase represents a tenant database
-	TenantDatabase DatabaseType = "tenant"
+	TenantDatabase Type = "tenant"
 )
 
-func MigrateUp(ctx context.Context, db Database, dbType DatabaseType) error {
+func MigrateUp(ctx context.Context, db Database, dbType Type) error {
 	// Use the appropriate migrations directory based on the database type
 	migrationsDir := filepath.Join("migrations", string(dbType))
 
 	return MigrateUpDir(ctx, db, dbType, migrationsDir)
 }
 
-func MigrateUpDir(ctx context.Context, db Database, dbType DatabaseType, migrationsDir string) error {
+func MigrateUpDir(ctx context.Context, db Database, dbType Type, migrationsDir string) error {
 	rawDB, ok := db.(*sql.DB)
 	if !ok {
 		return errors.New("db is not a *sql.DB")
@@ -48,7 +48,7 @@ func MigrateUpDir(ctx context.Context, db Database, dbType DatabaseType, migrati
 }
 
 // RunGooseMigration runs a Goose migration command
-func RunGooseMigration(ctx context.Context, command string, dbType DatabaseType, dbPath string) error {
+func RunGooseMigration(ctx context.Context, command string, dbType Type, dbPath string) error {
 	if dbPath == "" {
 		return errors.New("database path can not be empty")
 	}

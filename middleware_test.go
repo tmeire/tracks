@@ -30,7 +30,7 @@ func TestMiddlewares_Wrap(t *testing.T) {
 		})
 
 		// Create a middlewares struct and add the middlewares in order
-		ms := newMiddlewares()
+		ms := middlewares{}
 		ms.Apply(m(1))
 		ms.Apply(m(2))
 		ms.Apply(m(3))

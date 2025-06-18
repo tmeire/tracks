@@ -3,9 +3,7 @@ package tracks
 import (
 	"encoding/json"
 	"encoding/xml"
-	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/database/sqlite"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,10 +19,10 @@ func TestRouter_Get(t *testing.T) {
 	}
 	defer tempDB.Close()
 
-	err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
-	if err != nil {
-		log.Fatalf("failed to apply migrations: %v", err)
-	}
+	//err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
+	//if err != nil {
+	//	log.Fatalf("failed to apply migrations: %v", err)
+	//}
 
 	err = writeTemplate("views/default/test.gohtml", `{{.}}`)
 	if err != nil {
@@ -190,10 +188,10 @@ func TestRouter_Get_WithError(t *testing.T) {
 	}
 	defer tempDB.Close()
 
-	err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
-	if err != nil {
-		log.Fatalf("failed to apply migrations: %v", err)
-	}
+	//err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
+	//if err != nil {
+	//	log.Fatalf("failed to apply migrations: %v", err)
+	//}
 
 	// Create a new router
 	router := New("test.local", tempDB)

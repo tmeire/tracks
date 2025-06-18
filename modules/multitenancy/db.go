@@ -95,6 +95,8 @@ func (t *TenantRepository) createTenantDB(ctx context.Context, tenantID int) (da
 	t.tenantsMutex.Lock()
 	defer t.tenantsMutex.Unlock()
 
+	ctx = database.WithDB(ctx, t.centralDB)
+
 	// Check again in case another goroutine created the connection while we were waiting
 	if tenantDB, exists := t.tenantDBs[tenantID]; exists {
 		return tenantDB, nil
@@ -131,6 +133,8 @@ func (t *TenantRepository) CreateTenant(ctx context.Context, name, subdomain str
 		Subdomain: subdomain,
 		DBPath:    filepath.Join(t.storageDir, "Tenants", subdomain, "tenant.sqlite"),
 	}
+
+	ctx = database.WithDB(ctx, t.centralDB)
 
 	// Save the tenant to the central database
 	tenant, err := t.schema.Tenants.Create(ctx, tenant)
@@ -176,6 +180,8 @@ func (t *TenantRepository) Close() error {
 
 // GetTenantBySubdomain returns a tenant by its subdomain
 func (t *TenantRepository) GetTenantBySubdomain(ctx context.Context, subdomain string) (*Tenant, error) {
+	ctx = database.WithDB(ctx, t.centralDB)
+
 	tenants, err := t.schema.Tenants.FindBy(ctx, map[string]any{"subdomain": subdomain})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find tenant: %w", err)

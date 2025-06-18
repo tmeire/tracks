@@ -79,14 +79,42 @@ func (s *User) ValidatePassword(password string) bool {
 	return bcrypt.CompareHashAndPassword(pwEnc, []byte(password)) == nil
 }
 
-type UsersResource struct{}
+type UsersResource struct {
+	schema *schema
+}
+
+func (u *UsersResource) Index(r *http.Request) (any, error) {
+	userId, ok := session.FromRequest(r).Authenticated()
+	if !ok {
+		return &tracks.Response{
+			StatusCode: http.StatusSeeOther,
+			Location:   "/",
+		}, nil
+	}
+
+	return u.schema.users.FindByID(r.Context(), userId)
+}
 
 func (u *UsersResource) New(r *http.Request) (any, error) {
+	if session.FromRequest(r).IsAuthenticated() {
+		return &tracks.Response{
+			StatusCode: http.StatusSeeOther,
+			Location:   "/users/",
+		}, nil
+	}
+
 	// Return nil to use the default template rendering
 	return nil, nil
 }
 
 func (u *UsersResource) Create(r *http.Request) (any, error) {
+	if session.FromRequest(r).IsAuthenticated() {
+		return &tracks.Response{
+			StatusCode: http.StatusSeeOther,
+			Location:   "/users/",
+		}, nil
+	}
+
 	if err := r.ParseForm(); err != nil {
 		return nil, err
 	}
@@ -113,10 +141,8 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	s := newSchema()
-
 	// Check if a user with this email already exists
-	existingUsers, err := s.users.FindBy(r.Context(), map[string]any{"email": email})
+	existingUsers, err := u.schema.users.FindBy(r.Context(), map[string]any{"email": email})
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +171,7 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 	}
 
 	// Save the user to the database
-	user, err = s.users.Create(r.Context(), user)
+	user, err = u.schema.users.Create(r.Context(), user)
 	if err != nil {
 		return nil, err
 	}
