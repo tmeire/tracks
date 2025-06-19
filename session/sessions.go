@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"net"
 	"net/http"
 
 	"go.opentelemetry.io/otel"
@@ -45,9 +46,11 @@ type Session interface {
 
 // Middleware is a middleware that adds a sessions to the request context.
 func Middleware(domain string, store Store) func(next http.Handler) http.Handler {
+	domain, _, _ = net.SplitHostPort(domain)
+
 	return func(next http.Handler) http.Handler {
 		return &middleware{
-			domain: domain,
+			domain: "." + domain,
 			store:  store,
 			next:   next,
 		}

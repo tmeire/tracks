@@ -6,7 +6,6 @@ import (
 	"github.com/tmeire/tracks"
 	"github.com/tmeire/tracks/session"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -14,7 +13,7 @@ const (
 	htmlMediaType = "text/html"
 )
 
-func authenticate(domain string, port int, secure bool) tracks.Middleware {
+func authenticate(domain string, secure bool) tracks.Middleware {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !session.FromRequest(r).IsAuthenticated() {
@@ -26,9 +25,6 @@ func authenticate(domain string, port int, secure bool) tracks.Middleware {
 					}
 
 					host := fmt.Sprintf("%s://%s", scheme, domain)
-					if port != 0 {
-						host += ":" + strconv.Itoa(port)
-					}
 
 					sess := session.FromRequest(r)
 					sess.Put(loginRefererKey, scheme+"://"+r.Host+r.URL.Path)
@@ -73,7 +69,7 @@ func Register(r tracks.Router) tracks.Router {
 		GetFunc("/users/new", "users", "new", ur.New).
 		// Registration action
 		PostFunc("/users/", "users", "create", ur.Create).
-		Middleware(authenticate(r.BaseDomain(), r.Port(), r.Secure())).
+		Middleware(authenticate(r.BaseDomain(), r.Secure())).
 		// Logout action
 		DeleteFunc("/sessions/", "sessions", "destroy", sr.Delete)
 }
