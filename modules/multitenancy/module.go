@@ -13,7 +13,7 @@ func Register(r tracks.Router) tracks.Router {
 	rn := &router{
 		tenantDB,
 		r,
-		r.Clone().Views("./views/Tenants"),
+		r.Clone().Views("./views/tenants"),
 	}
 
 	return rn.Middleware(injectTenantDB(tenantDB))
