@@ -66,7 +66,6 @@ func New(baseDomain string, db database.Database) Router {
 	translator := i18n.NewTranslator("en")
 
 	// Try to load translations from the translations directory
-	// TODO:
 	err = translator.LoadTranslations("./translations")
 	if err != nil {
 		log.Printf("Failed to load translations: %v", err)
@@ -103,14 +102,10 @@ func New(baseDomain string, db database.Database) Router {
 				},
 				"link": func(s string) template.URL {
 					// TODO: very naive implementation
-					host := baseDomain
-					if port != 0 {
-						host = fmt.Sprintf("%s:%d", host, port)
-					}
 					if s[0] != '/' {
 						s = "/" + s
 					}
-					return template.URL("//" + host + s)
+					return template.URL("//" + baseDomain + s)
 				},
 			},
 		},
