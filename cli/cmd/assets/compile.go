@@ -167,8 +167,8 @@ func updateReferences(p *project.Project, assetMap map[string]string) error {
 			return nil
 		}
 
-		// Only process .gohtml files
-		if !strings.HasSuffix(path, ".gohtml") {
+		// Only process .gohtml and .css files
+		if !strings.HasSuffix(path, ".gohtml") && !strings.HasSuffix(path, ".css") {
 			return nil
 		}
 
