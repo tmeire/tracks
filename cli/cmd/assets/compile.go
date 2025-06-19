@@ -45,6 +45,8 @@ func CompileCmd() *cobra.Command {
 // 2. Computes a hash for each file
 // 3. Renames the file with the hash in the filename
 // 4. Updates references to the original file in HTML/CSS/JS files
+//
+// TODO: We also want to allow relative references within css files
 func hashAssets(keepOriginal bool) error {
 	// GetFunc the project root directory
 	p, err := project.Load()
@@ -157,7 +159,17 @@ func copyFile(src, dst string) error {
 
 // updateReferences updates references to original files with hashed files
 func updateReferences(p *project.Project, assetMap map[string]string) error {
-	err := filepath.Walk(p.Views(), func(path string, info fs.FileInfo, err error) error {
+	if err := updateReferencesInFolder(p.Views(), assetMap); err != nil {
+		return err
+	}
+	if err := updateReferencesInFolder(p.Assets(), assetMap); err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateReferencesInFolder(folder string, assetMap map[string]string) error {
+	err := filepath.Walk(folder, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
