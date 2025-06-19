@@ -116,8 +116,13 @@ func (r *router) Resource(rs tracks.Resource) tracks.Router {
 	return r
 }
 
-func (r *router) Run() {
-	tracks.Serve(r, r.root.Port())
+func (r *router) ResourceAtPath(path string, rs tracks.Resource) tracks.Router {
+	r.subdomains = r.subdomains.ResourceAtPath(path, rs)
+	return r
+}
+
+func (r *router) Run() error {
+	return tracks.Serve(r, r.root.Port())
 }
 
 func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {

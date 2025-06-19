@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -41,7 +40,8 @@ type Router interface {
 	PatchFunc(path string, controller, action string, r Action) Router
 	DeleteFunc(path string, controller, action string, r Action) Router
 	Resource(r Resource) Router
-	Run()
+	ResourceAtPath(path string, r Resource) Router
+	Run() error
 }
 
 type router struct {
@@ -55,11 +55,11 @@ type router struct {
 }
 
 // New creates a new router with a database-backed session store
-func New(baseDomain string, db database.Database) Router {
-	portVal := os.Getenv("PORT")
-	port, err := strconv.Atoi(portVal)
-	if err != nil || port == 0 {
-		port = 8080
+func New(db database.Database) Router {
+	conf, err := loadConfig()
+	if err != nil {
+		log.Printf("Failed to load config: %v", err)
+		return errRouter{err: err}
 	}
 
 	// Initialize the translator with English as the default language
@@ -73,8 +73,8 @@ func New(baseDomain string, db database.Database) Router {
 	}
 
 	r := &router{
-		port:        port,
-		baseDomain:  baseDomain,
+		port:        conf.Port,
+		baseDomain:  conf.BaseDomain,
 		database:    db,
 		mux:         http.NewServeMux(),
 		middlewares: &middlewares{},
@@ -105,7 +105,7 @@ func New(baseDomain string, db database.Database) Router {
 					if s[0] != '/' {
 						s = "/" + s
 					}
-					return template.URL("//" + baseDomain + s)
+					return template.URL("//" + conf.BaseDomain + s)
 				},
 			},
 		},
@@ -127,7 +127,7 @@ func New(baseDomain string, db database.Database) Router {
 
 	// Set up sessions for all the domains
 	r.Middleware(session.Middleware(
-		baseDomain,
+		conf.BaseDomain,
 		sessiondb.NewStore(db),
 	))
 
@@ -186,15 +186,19 @@ func (r *router) normalize(path string) string {
 // - method: the HTTP method (e.g., "GET", "POST", etc.).
 // - path: the URL path for which the handler should be registered.
 // - r: the Action function that handles HTTP requests.
-func (r *router) serve(method, urlPath string, controller, action string, a Action) {
+func (r *router) serve(method, urlPath string, controller, action string, a Action) Router {
 	normalizedPath := r.normalize(urlPath)
 
 	pattern := method + " " + normalizedPath
 	println(pattern)
 
-	tpl := template.Must(r.templates.Load(controller, action))
+	tpl, err := r.templates.Load(controller, action)
+	if err != nil {
+		return errRouter{err}
+	}
 
 	r.mux.Handle(pattern, r.middlewares.Wrap(a.wrap(controller, action, tpl, r.translator)))
+	return r
 }
 
 // static registers a directory to serve static files from.
@@ -300,8 +304,7 @@ func (r *router) Get(path string, controller, action string, c Controller) Route
 	}); needsRouter {
 		nr.Inject(r)
 	}
-	r.serve(http.MethodGet, path, controller, action, c.Index)
-	return r
+	return r.serve(http.MethodGet, path, controller, action, c.Index)
 }
 
 // GetFunc registers a handler for HTTP GET requests to the specified path.
@@ -310,8 +313,7 @@ func (r *router) Get(path string, controller, action string, c Controller) Route
 // - path: the URL path for which the handler should be registered.
 // - r: the Action to handle the HTTP GET request.
 func (r *router) GetFunc(path string, controller, action string, a Action) Router {
-	r.serve(http.MethodGet, path, controller, action, a)
-	return r
+	return r.serve(http.MethodGet, path, controller, action, a)
 }
 
 // PostFunc registers a handler for HTTP POST requests to the specified path.
@@ -320,8 +322,7 @@ func (r *router) GetFunc(path string, controller, action string, a Action) Route
 // - path: the URL path for which the handler should be registered.
 // - r: the Action to handle the HTTP POST request.
 func (r *router) PostFunc(path string, controller, action string, a Action) Router {
-	r.serve(http.MethodPost, path, controller, action, a)
-	return r
+	return r.serve(http.MethodPost, path, controller, action, a)
 }
 
 // PutFunc registers a handler for HTTP PUT requests to the specified path.
@@ -330,8 +331,7 @@ func (r *router) PostFunc(path string, controller, action string, a Action) Rout
 // - path: the URL path for which the handler should be registered.
 // - r: the Action to handle the HTTP PUT request.
 func (r *router) PutFunc(path string, controller, action string, a Action) Router {
-	r.serve(http.MethodPut, path, controller, action, a)
-	return r
+	return r.serve(http.MethodPut, path, controller, action, a)
 }
 
 // PatchFunc registers a handler for HTTP PATCH requests to the specified path.
@@ -340,8 +340,7 @@ func (r *router) PutFunc(path string, controller, action string, a Action) Route
 // - path: the URL path for which the handler should be registered.
 // - r: the Action to handle the HTTP PATCH request.
 func (r *router) PatchFunc(path string, controller, action string, a Action) Router {
-	r.serve(http.MethodPatch, path, controller, action, a)
-	return r
+	return r.serve(http.MethodPatch, path, controller, action, a)
 }
 
 // DeleteFunc registers a handler for HTTP DELETE requests to the specified path.
@@ -350,8 +349,7 @@ func (r *router) PatchFunc(path string, controller, action string, a Action) Rou
 // - path: the URL path for which the handler should be registered.
 // - r: the Action to handle the HTTP DELETE request.
 func (r *router) DeleteFunc(path string, controller, action string, a Action) Router {
-	r.serve(http.MethodDelete, path, controller, action, a)
-	return r
+	return r.serve(http.MethodDelete, path, controller, action, a)
 }
 
 // Resource registers a resourceful route for a given resource and tasks it with handling
@@ -373,6 +371,12 @@ func (r *router) DeleteFunc(path string, controller, action string, a Action) Ro
 // Returns:
 // - A pointer to the sub-router created for the resource.
 func (r *router) Resource(rs Resource) Router {
+	nr := r.ResourceAtPath("/", rs)
+
+	return nr
+}
+
+func (r *router) ResourceAtPath(rootPath string, rs Resource) Router {
 	// This little piece of reflection is OK since it only runs once on boot,
 	// it's not a reflection penalty on every request.
 	rt := reflect.TypeOf(rs)
@@ -381,45 +385,41 @@ func (r *router) Resource(rs Resource) Router {
 	}
 	name := strings.TrimSuffix(strings.ToLower(rt.Name()), "resource")
 
-	r.registerResource("/", name, rs)
-
-	if withSubresouces, ok := rs.(interface {
-		Subresources() map[string]Resource
-	}); ok {
-		rootPath := "/" + name + fmt.Sprintf("/{%s_id}", name)
-
-		for path, sr := range withSubresouces.Subresources() {
-			r.registerResource(rootPath, path, sr)
-		}
-	}
-	return r
-}
-
-func (r *router) registerResource(rootPath, name string, rs Resource) {
 	pathParamName := fmt.Sprintf(`{%s_id}`, name)
 
 	basePath := filepath.Join(rootPath, r.normalize(name))
 
 	// Register resource actions with the controller name
-	r.GetFunc(basePath+"/", name, "index", rs.Index)
-	r.GetFunc(basePath+"/new", name, "new", rs.New)
-	r.PostFunc(basePath+"/", name, "create", rs.Create)
+	nr := r.GetFunc(basePath+"/", name, "index", rs.Index).
+		GetFunc(basePath+"/new", name, "new", rs.New).
+		PostFunc(basePath+"/", name, "create", rs.Create).
+		GetFunc(basePath+"/"+pathParamName, name, "show", rs.Show).
+		GetFunc(basePath+"/"+pathParamName+"/edit", name, "edit", rs.Edit).
+		PutFunc(basePath+"/"+pathParamName, name, "update", rs.Update).
+		PostFunc(basePath+"/"+pathParamName, name, "update", rs.Update).
+		DeleteFunc(basePath+"/"+pathParamName, name, "destroy", rs.Destroy)
 
-	r.GetFunc(basePath+"/"+pathParamName, name, "show", rs.Show)
-	r.GetFunc(basePath+"/"+pathParamName+"/edit", name, "edit", rs.Edit)
-	r.PutFunc(basePath+"/"+pathParamName, name, "update", rs.Update)
-	r.PostFunc(basePath+"/"+pathParamName, name, "update", rs.Update)
+	// If this resource has subresources, register these as well.
+	if withSubresouces, ok := rs.(interface {
+		Subresources() []Resource
+	}); ok {
+		basePath = fmt.Sprintf("%s/{%s_id}/", basePath, name)
 
-	r.DeleteFunc(basePath+"/"+pathParamName, name, "destroy", rs.Destroy)
+		for _, sr := range withSubresouces.Subresources() {
+			nr = nr.ResourceAtPath(basePath, sr)
+		}
+	}
+
+	return nr
 }
 
 // Run starts the HTTP server using the router as the handler on the specified port or default port 8080 if unset.
 // It retrieves the port from the PORT environment variable and logs the server address before starting it.
-func (r *router) Run() {
-	Serve(r, r.port)
+func (r *router) Run() error {
+	return Serve(r, r.port)
 }
 
-func Serve(h http.Handler, port int) {
+func Serve(h http.Handler, port int) error {
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
 		syscall.SIGHUP,
@@ -434,22 +434,113 @@ func Serve(h http.Handler, port int) {
 
 	done := make(chan struct{})
 
+	var err error
 	go func() {
 		defer close(done)
 
-		err := server.ListenAndServe()
+		fmt.Printf("Starting server on port %d\n", port)
+		err = server.ListenAndServe()
 		if err != nil {
-			log.Fatalf("HTTP server failed: %v", err)
+			log.Printf("HTTP server failed: %v", err)
 		}
 	}()
 
 	// This will block the function until the server stops or an OS signal is received
 	select {
 	case <-sigc:
-		err := server.Close()
+		err = server.Close()
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
 		}
 	case <-done:
 	}
+	return err
+}
+
+type errRouter struct {
+	err error
+}
+
+func (e errRouter) Clone() Router {
+	return e
+}
+
+func (e errRouter) Secure() bool {
+	return false
+}
+
+func (e errRouter) BaseDomain() string {
+	return ""
+}
+
+func (e errRouter) Port() int {
+	return 0
+}
+
+func (e errRouter) Database() database.Database {
+	return nil
+}
+
+func (e errRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	return
+}
+
+func (e errRouter) Module(m Module) Router {
+	return e
+}
+
+func (e errRouter) Middleware(m Middleware) Router {
+	return e
+}
+
+func (e errRouter) Func(name string, fn any) Router {
+	return e
+}
+
+func (e errRouter) Views(path string) Router {
+	return e
+}
+
+func (e errRouter) Page(path string, view string) Router {
+	return e
+}
+
+func (e errRouter) Redirect(origin string, destination string) Router {
+	return e
+}
+
+func (e errRouter) Get(path string, controller, action string, r Controller) Router {
+	return e
+}
+
+func (e errRouter) GetFunc(path string, controller, action string, r Action) Router {
+	return e
+}
+
+func (e errRouter) PostFunc(path string, controller, action string, r Action) Router {
+	return e
+}
+
+func (e errRouter) PutFunc(path string, controller, action string, r Action) Router {
+	return e
+}
+
+func (e errRouter) PatchFunc(path string, controller, action string, r Action) Router {
+	return e
+}
+
+func (e errRouter) DeleteFunc(path string, controller, action string, r Action) Router {
+	return e
+}
+
+func (e errRouter) Resource(r Resource) Router {
+	return e
+}
+
+func (e errRouter) ResourceAtPath(path string, r Resource) Router {
+	return e
+}
+
+func (e errRouter) Run() error {
+	return e.err
 }
