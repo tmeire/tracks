@@ -14,9 +14,7 @@ import (
 	"net/http"
 )
 
-func SetupTracerProvider(name string) (*trace.TracerProvider, error) {
-	ctx := context.Background()
-
+func SetupTracerProvider(ctx context.Context, name string) (*trace.TracerProvider, error) {
 	// Make a gRPC connection with otel collector.
 	conn, err := grpc.NewClient("localhost:4317",
 		// Note the use of insecure transport here. TLS is recommended in production.
@@ -52,6 +50,6 @@ func SetupTracerProvider(name string) (*trace.TracerProvider, error) {
 	return tp, nil
 }
 
-func Trace(h http.Handler) http.Handler {
-	return otelhttp.NewHandler(h, "action")
+func Trace(h http.Handler) (http.Handler, error) {
+	return otelhttp.NewHandler(h, "action"), nil
 }

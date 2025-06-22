@@ -14,12 +14,12 @@ func TestMiddlewares_Wrap(t *testing.T) {
 		var executionOrder []string
 
 		m := func(i int) Middleware {
-			return func(h http.Handler) http.Handler {
+			return func(h http.Handler) (http.Handler, error) {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					executionOrder = append(executionOrder, fmt.Sprintf("middleware%d-before", i))
 					h.ServeHTTP(w, r)
 					executionOrder = append(executionOrder, fmt.Sprintf("middleware%d-after", i))
-				})
+				}), nil
 			}
 		}
 
@@ -36,7 +36,10 @@ func TestMiddlewares_Wrap(t *testing.T) {
 		ms.Apply(m(3))
 
 		// Wrap the final handler with the globalMiddlewares
-		wrappedHandler := ms.Wrap(finalHandler)
+		wrappedHandler, err := ms.Wrap(finalHandler)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// Create a test request
 		req := httptest.NewRequest("GET", "/test", nil)

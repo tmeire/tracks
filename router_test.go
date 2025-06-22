@@ -3,6 +3,7 @@ package tracks
 import (
 	"encoding/json"
 	"encoding/xml"
+	"github.com/stretchr/testify/assert"
 	"github.com/tmeire/tracks/database/sqlite"
 	"net/http"
 	"net/http/httptest"
@@ -18,11 +19,6 @@ func TestRouter_Get(t *testing.T) {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
 	defer tempDB.Close()
-
-	//err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
-	//if err != nil {
-	//	log.Fatalf("failed to apply migrations: %v", err)
-	//}
 
 	err = writeTemplate("views/default/test.gohtml", `{{.}}`)
 	if err != nil {
@@ -50,15 +46,17 @@ func TestRouter_Get(t *testing.T) {
 		os.RemoveAll("views")
 	}()
 
-	// Create a new router
-	router := New(tempDB)
+	// Create a new router and register a simple handler using Action
+	h, err := New(t.Context(), tempDB).
+		GetFunc("/test", "default", "test", func(r *http.Request) (any, error) {
+			// Return an opaque data object, which will automatically get a StatusOK
+			return "Hello, Test!", nil
+		}).
+		Handler()
 
-	// Module a simple handler using Action
-	router.GetFunc("/test", "default", "test", func(r *http.Request) (any, error) {
-		// Return an opaque data object, which will automatically get a StatusOK
-		return "Hello, Test!", nil
-	})
-
+	if !assert.NoError(t, err, "Failed to create router") {
+		t.FailNow()
+	}
 	// Test with the default Accept header (should default to JSON)
 	t.Run("Default Content Type", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/test", nil)
@@ -67,7 +65,7 @@ func TestRouter_Get(t *testing.T) {
 		}
 
 		rr := httptest.NewRecorder()
-		router.Handler().ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -96,7 +94,7 @@ func TestRouter_Get(t *testing.T) {
 		req.Header.Set("Accept", "application/json")
 
 		rr := httptest.NewRecorder()
-		router.Handler().ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -128,7 +126,7 @@ func TestRouter_Get(t *testing.T) {
 		req.Header.Set("Accept", "application/xml")
 
 		rr := httptest.NewRecorder()
-		router.Handler().ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -160,7 +158,7 @@ func TestRouter_Get(t *testing.T) {
 		req.Header.Set("Accept", "text/html")
 
 		rr := httptest.NewRecorder()
-		router.Handler().ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -188,26 +186,24 @@ func TestRouter_Get_WithError(t *testing.T) {
 	}
 	defer tempDB.Close()
 
-	//err = database.MigrateUpDir(t.Context(), tempDB, database.CentralDatabase, "../../migrations/central")
-	//if err != nil {
-	//	log.Fatalf("failed to apply migrations: %v", err)
-	//}
+	// Create a new router and register a handler that returns an error
+	h, err := New(t.Context(), tempDB).
+		GetFunc("/error", "default", "error", func(r *http.Request) (any, error) {
+			// Return a Response object with error data
+			return &Response{
+				StatusCode: http.StatusBadRequest,
+				Data: map[string]any{
+					"message": "Bad Request",
+					"code":    "INVALID_PARAMETER",
+					"details": map[string]string{"field": "id", "issue": "missing"},
+				},
+			}, nil
+		}).
+		Handler()
 
-	// Create a new router
-	router := New(tempDB)
-
-	// Module a handler that returns an error
-	router.GetFunc("/error", "default", "error", func(r *http.Request) (any, error) {
-		// Return a Response object with error data
-		return &Response{
-			StatusCode: http.StatusBadRequest,
-			Data: map[string]any{
-				"message": "Bad Request",
-				"code":    "INVALID_PARAMETER",
-				"details": map[string]string{"field": "id", "issue": "missing"},
-			},
-		}, nil
-	})
+	if !assert.NoError(t, err, "Failed to create router") {
+		t.FailNow()
+	}
 
 	// Test with JSON Accept header
 	t.Run("JSON Error Response", func(t *testing.T) {
@@ -218,7 +214,7 @@ func TestRouter_Get_WithError(t *testing.T) {
 		req.Header.Set("Accept", "application/json")
 
 		rr := httptest.NewRecorder()
-		router.Handler().ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusBadRequest {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
@@ -229,6 +225,8 @@ func TestRouter_Get_WithError(t *testing.T) {
 		if contentType != "application/json" {
 			t.Errorf("Handler returned wrong content type: got %v want %v", contentType, "application/json")
 		}
+
+		t.Logf("Response body: %s", rr.Body.String())
 
 		// Check the response body
 		var errorResp map[string]any

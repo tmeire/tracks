@@ -70,7 +70,8 @@ func (t *Templates) Load(controller, action string) (*template.Template, error) 
 	if t.layout == nil {
 		layout, err := t.loadLayout()
 		if err != nil {
-			return nil, err
+			// Let's ignore it, could be an API-only app
+			return nil, nil
 		}
 		t.layout = layout
 	}

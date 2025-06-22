@@ -52,13 +52,13 @@ func DetectLanguage(r *http.Request, defaultLang string) string {
 }
 
 // Middleware adds language detection to the request context
-func Middleware(defaultLang string) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
+func Middleware(defaultLang string) func(next http.Handler) (http.Handler, error) {
+	return func(next http.Handler) (http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			lang := DetectLanguage(r, defaultLang)
 			ctx := WithLanguage(r.Context(), lang)
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
-		})
+		}), nil
 	}
 }

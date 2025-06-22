@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 )
 
-func CatchAll(handler http.Handler) http.Handler {
+func CatchAll(handler http.Handler) (http.Handler, error) {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer func() {
 			v := recover()
@@ -27,5 +27,5 @@ func CatchAll(handler http.Handler) http.Handler {
 		}()
 
 		handler.ServeHTTP(w, req)
-	})
+	}), nil
 }

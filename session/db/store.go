@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"go.opentelemetry.io/otel/trace"
 	"time"
@@ -16,14 +17,22 @@ type Store struct {
 	repository *database.Repository[*Store, *SessionModel]
 }
 
+//go:embed migrations
+var migrations embed.FS
+
 // NewStore creates a new database-backed session store
-func NewStore(db database.Database) *Store {
+func NewStore(ctx context.Context, db database.Database) (*Store, error) {
+	err := database.MigrateUpFS(ctx, db, database.CentralDatabase, migrations)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Store{
 		database: db,
 	}
 	s.repository = database.NewRepository[*Store, *SessionModel](s)
 
-	return s
+	return s, nil
 }
 
 // Load retrieves a session from the database by ID

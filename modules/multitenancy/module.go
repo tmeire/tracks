@@ -18,12 +18,16 @@ func Register(r tracks.Router) tracks.Router {
 
 	rn := r.Clone().Views("./views/tenants")
 
-	r.GlobalMiddleware(func(next http.Handler) http.Handler {
+	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+		h, err := rn.Handler()
+		if err != nil {
+			return nil, err
+		}
 		return &splitter{
 			tenantDB:   tenantDB,
 			root:       next,
-			subdomains: rn.Handler(),
-		}
+			subdomains: h,
+		}, nil
 	})
 
 	return rn

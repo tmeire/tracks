@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -61,20 +62,20 @@ type mockSession struct {
 	data map[string]string
 }
 
-func (m *mockSession) Authenticate(userId string) {}
+func (m *mockSession) Authenticate(userId string)    {}
 func (m *mockSession) Authenticated() (string, bool) { return "", false }
-func (m *mockSession) IsAuthenticated() bool { return false }
+func (m *mockSession) IsAuthenticated() bool         { return false }
 func (m *mockSession) Get(key string) (string, bool) {
 	val, ok := m.data[key]
 	return val, ok
 }
-func (m *mockSession) Put(key string, value string) { m.data[key] = value }
-func (m *mockSession) Forget(key string) { delete(m.data, key) }
-func (m *mockSession) ID() string { return "test-session" }
-func (m *mockSession) Flash(key string, value string) {}
+func (m *mockSession) Put(key string, value string)     { m.data[key] = value }
+func (m *mockSession) Forget(key string)                { delete(m.data, key) }
+func (m *mockSession) ID() string                       { return "test-session" }
+func (m *mockSession) Flash(key string, value string)   {}
 func (m *mockSession) FlashMessages() map[string]string { return nil }
-func (m *mockSession) Save(ctx context.Context) error { return nil }
-func (m *mockSession) Invalidate(ctx context.Context) {}
+func (m *mockSession) Save(ctx context.Context) error   { return nil }
+func (m *mockSession) Invalidate(ctx context.Context)   {}
 
 // Helper function for testing DetectLanguage without relying on session.FromRequest
 func detectLanguageWithSession(r *http.Request, defaultLang string, sess session.Session) string {
@@ -179,7 +180,8 @@ func TestMiddleware(t *testing.T) {
 	})
 
 	// Wrap the test handler with the middleware
-	handler := middleware(testHandler)
+	handler, err := middleware(testHandler)
+	assert.NoError(t, err)
 
 	// Test with Accept-Language header
 	t.Run("Sets language from header", func(t *testing.T) {

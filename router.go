@@ -1,6 +1,7 @@
 package tracks
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"log"
@@ -41,7 +42,7 @@ type Router interface {
 	DeleteFunc(path string, controller, action string, r Action) Router
 	Resource(r Resource) Router
 	ResourceAtPath(path string, r Resource) Router
-	Handler() http.Handler
+	Handler() (http.Handler, error)
 	Run() error
 }
 
@@ -58,7 +59,7 @@ type router struct {
 }
 
 // New creates a new router with a database-backed session store
-func New(db database.Database) Router {
+func New(ctx context.Context, db database.Database) Router {
 	conf, err := loadConfig()
 	if err != nil {
 		log.Printf("Failed to load config: %v", err)
@@ -131,10 +132,12 @@ func New(db database.Database) Router {
 	r.GlobalMiddleware(i18n.Middleware("en"))
 
 	// Set up sessions for all the domains
-	r.GlobalMiddleware(session.Middleware(
-		conf.BaseDomain,
-		sessiondb.NewStore(db),
-	))
+	store, err := sessiondb.NewStore(ctx, db)
+	if err != nil {
+		log.Printf("Failed to create session store: %v", err)
+		return errRouter{err: err}
+	}
+	r.GlobalMiddleware(session.Middleware(conf.BaseDomain, store))
 
 	return r
 }
@@ -202,7 +205,12 @@ func (r *router) serve(method, urlPath string, controller, action string, a Acti
 		return errRouter{err}
 	}
 
-	r.mux.Handle(pattern, r.requestMiddlewares.Wrap(a.wrap(controller, action, tpl, r.translator)))
+	h, err := r.requestMiddlewares.Wrap(a.wrap(controller, action, tpl, r.translator))
+	if err != nil {
+		return errRouter{err}
+	}
+
+	r.mux.Handle(pattern, h)
 	return r
 }
 
@@ -424,7 +432,7 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource) Router {
 }
 
 // Handler creates an HTTP handler for this router that can be used to launch
-func (r *router) Handler() http.Handler {
+func (r *router) Handler() (http.Handler, error) {
 	return r.globalMiddlewares.Wrap(r.mux)
 }
 
@@ -434,7 +442,11 @@ func (r *router) Run() error {
 	if r.parent != nil {
 		return r.parent.Run()
 	}
-	return Serve(r.Handler(), r.port)
+	h, err := r.Handler()
+	if err != nil {
+		return err
+	}
+	return Serve(h, r.port)
 }
 
 func Serve(h http.Handler, port int) error {
@@ -559,8 +571,8 @@ func (e errRouter) ResourceAtPath(path string, r Resource) Router {
 	return e
 }
 
-func (e errRouter) Handler() http.Handler {
-	return nil
+func (e errRouter) Handler() (http.Handler, error) {
+	return nil, e.err
 }
 
 func (e errRouter) Run() error {

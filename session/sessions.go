@@ -45,15 +45,15 @@ type Session interface {
 }
 
 // Middleware is a middleware that adds a sessions to the request context.
-func Middleware(domain string, store Store) func(next http.Handler) http.Handler {
+func Middleware(domain string, store Store) func(next http.Handler) (http.Handler, error) {
 	domain, _, _ = net.SplitHostPort(domain)
 
-	return func(next http.Handler) http.Handler {
+	return func(next http.Handler) (http.Handler, error) {
 		return &middleware{
 			domain: "." + domain,
 			store:  store,
 			next:   next,
-		}
+		}, nil
 	}
 }
 

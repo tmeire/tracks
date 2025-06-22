@@ -14,7 +14,7 @@ const (
 )
 
 func authenticate(domain string, secure bool) tracks.Middleware {
-	return func(h http.Handler) http.Handler {
+	return func(h http.Handler) (http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !session.FromRequest(r).IsAuthenticated() {
 				accept := r.Header.Get("Accept")
@@ -40,7 +40,7 @@ func authenticate(domain string, secure bool) tracks.Middleware {
 			}
 
 			h.ServeHTTP(w, r)
-		})
+		}), nil
 	}
 }
 

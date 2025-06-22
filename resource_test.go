@@ -115,12 +115,12 @@ func TestResource(t *testing.T) {
 	defer tempDB.Close()
 
 	// Create a new router
-	router := New(tempDB)
+	router := New(t.Context(), tempDB)
 
 	// Module the resource
 	router.Resource(ProductResource{})
 
-	h := router.Handler()
+	h, _ := router.Handler()
 
 	// Test Index action
 	t.Run("Index Action", func(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -21,6 +22,17 @@ const (
 	TenantDatabase Type = "tenant"
 )
 
+func MigrateUpFS(ctx context.Context, db Database, dbType Type, migrationsDir fs.FS) error {
+	goose.SetBaseFS(migrationsDir)
+	defer goose.SetBaseFS(nil)
+
+	return MigrateUp(
+		ctx,
+		db,
+		dbType,
+	)
+}
+
 func MigrateUp(ctx context.Context, db Database, dbType Type) error {
 	// Use the appropriate migrations directory based on the database type
 	migrationsDir := filepath.Join("migrations", string(dbType))
@@ -29,6 +41,9 @@ func MigrateUp(ctx context.Context, db Database, dbType Type) error {
 }
 
 func MigrateUpDir(ctx context.Context, db Database, dbType Type, migrationsDir string) error {
+	if ctx == nil {
+		return errors.New("context can not be nil to apply migrations")
+	}
 	rawDB, ok := db.(*sql.DB)
 	if !ok {
 		return errors.New("db is not a *sql.DB")
