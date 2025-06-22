@@ -51,7 +51,7 @@ func TestRouter_Get(t *testing.T) {
 	}()
 
 	// Create a new router
-	router := New("test.local", tempDB)
+	router := New(tempDB)
 
 	// Module a simple handler using Action
 	router.GetFunc("/test", "default", "test", func(r *http.Request) (any, error) {
@@ -67,7 +67,7 @@ func TestRouter_Get(t *testing.T) {
 		}
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		router.Handler().ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -96,7 +96,7 @@ func TestRouter_Get(t *testing.T) {
 		req.Header.Set("Accept", "application/json")
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		router.Handler().ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -128,7 +128,7 @@ func TestRouter_Get(t *testing.T) {
 		req.Header.Set("Accept", "application/xml")
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		router.Handler().ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -160,7 +160,7 @@ func TestRouter_Get(t *testing.T) {
 		req.Header.Set("Accept", "text/html")
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		router.Handler().ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -194,7 +194,7 @@ func TestRouter_Get_WithError(t *testing.T) {
 	//}
 
 	// Create a new router
-	router := New("test.local", tempDB)
+	router := New(tempDB)
 
 	// Module a handler that returns an error
 	router.GetFunc("/error", "default", "error", func(r *http.Request) (any, error) {
@@ -218,7 +218,7 @@ func TestRouter_Get_WithError(t *testing.T) {
 		req.Header.Set("Accept", "application/json")
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		router.Handler().ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusBadRequest {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)

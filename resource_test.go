@@ -115,10 +115,12 @@ func TestResource(t *testing.T) {
 	defer tempDB.Close()
 
 	// Create a new router
-	router := New("test.local", tempDB)
+	router := New(tempDB)
 
 	// Module the resource
 	router.Resource(ProductResource{})
+
+	h := router.Handler()
 
 	// Test Index action
 	t.Run("Index Action", func(t *testing.T) {
@@ -129,7 +131,7 @@ func TestResource(t *testing.T) {
 		req.Header.Set("Accept", "application/json")
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -161,7 +163,7 @@ func TestResource(t *testing.T) {
 		req.Header.Set("Accept", "application/json")
 
 		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
+		h.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)

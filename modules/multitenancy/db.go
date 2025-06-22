@@ -4,33 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"path/filepath"
 	"sync"
 
 	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/database/sqlite"
 )
-
-func injectTenantDB(tenants *TenantRepository) func(handler http.Handler) http.Handler {
-	return func(handler http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			ctx := req.Context()
-			tenant := ctx.Value(tenantContextKey).(*Tenant)
-
-			db, err := tenants.GetTenantDB(req.Context(), tenant.ID)
-			if err != nil {
-				http.Error(w, "Failed to connect to database", http.StatusInternalServerError)
-				return
-			}
-
-			// Add the tenant database to the request context
-			req = req.WithContext(database.WithDB(req.Context(), db))
-
-			handler.ServeHTTP(w, req)
-		})
-	}
-}
 
 type Schema struct {
 	Tenants   *database.Repository[*Schema, *Tenant]

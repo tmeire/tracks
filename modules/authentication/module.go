@@ -69,7 +69,7 @@ func Register(r tracks.Router) tracks.Router {
 		GetFunc("/users/new", "users", "new", ur.New).
 		// Registration action
 		PostFunc("/users/", "users", "create", ur.Create).
-		Middleware(authenticate(r.BaseDomain(), r.Secure())).
+		RequestMiddleware(authenticate(r.BaseDomain(), r.Secure())).
 		// Logout action
 		DeleteFunc("/sessions/", "sessions", "destroy", sr.Delete)
 }

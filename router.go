@@ -26,9 +26,9 @@ type Router interface {
 	BaseDomain() string
 	Port() int
 	Database() database.Database
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	Module(m Module) Router
-	Middleware(m Middleware) Router
+	GlobalMiddleware(m Middleware) Router
+	RequestMiddleware(m Middleware) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -41,17 +41,20 @@ type Router interface {
 	DeleteFunc(path string, controller, action string, r Action) Router
 	Resource(r Resource) Router
 	ResourceAtPath(path string, r Resource) Router
+	Handler() http.Handler
 	Run() error
 }
 
 type router struct {
-	port        int
-	baseDomain  string
-	database    database.Database
-	mux         *http.ServeMux
-	middlewares *middlewares
-	templates   Templates
-	translator  *i18n.Translator
+	parent             *router
+	port               int
+	baseDomain         string
+	database           database.Database
+	mux                *http.ServeMux
+	globalMiddlewares  *middlewares
+	requestMiddlewares *middlewares
+	templates          Templates
+	translator         *i18n.Translator
 }
 
 // New creates a new router with a database-backed session store
@@ -73,12 +76,14 @@ func New(db database.Database) Router {
 	}
 
 	r := &router{
-		port:        conf.Port,
-		baseDomain:  conf.BaseDomain,
-		database:    db,
-		mux:         http.NewServeMux(),
-		middlewares: &middlewares{},
-		translator:  translator,
+		parent:             nil,
+		port:               conf.Port,
+		baseDomain:         conf.BaseDomain,
+		database:           db,
+		mux:                http.NewServeMux(),
+		globalMiddlewares:  &middlewares{},
+		requestMiddlewares: &middlewares{},
+		translator:         translator,
 		templates: Templates{
 			basedir: "./views",
 			fns: template.FuncMap{
@@ -112,21 +117,21 @@ func New(db database.Database) Router {
 	}
 
 	// HTTP traces for every request
-	r.Middleware(otel.Trace)
+	r.GlobalMiddleware(otel.Trace)
 
 	// Catch all panics to make sure no weird output is written to the client
-	r.Middleware(CatchAll)
+	r.GlobalMiddleware(CatchAll)
 
 	// Serving static files on the root domain
 	r.static("/assets/", "public")
 
-	r.Middleware(database.Middleware(db))
+	r.GlobalMiddleware(database.Middleware(db))
 
 	// Set up i18n middleware for language detection
-	r.Middleware(i18n.Middleware("en"))
+	r.GlobalMiddleware(i18n.Middleware("en"))
 
 	// Set up sessions for all the domains
-	r.Middleware(session.Middleware(
+	r.GlobalMiddleware(session.Middleware(
 		conf.BaseDomain,
 		sessiondb.NewStore(db),
 	))
@@ -136,13 +141,17 @@ func New(db database.Database) Router {
 
 func (r *router) Clone() Router {
 	return &router{
-		port:        r.port,
-		baseDomain:  r.baseDomain,
-		database:    r.database,
-		mux:         http.NewServeMux(),
-		middlewares: r.middlewares,
-		templates:   r.templates,
-		translator:  r.translator,
+		parent:            r,
+		port:              r.port,
+		baseDomain:        r.baseDomain,
+		database:          r.database,
+		mux:               http.NewServeMux(),
+		globalMiddlewares: &middlewares{},
+		requestMiddlewares: &middlewares{
+			l: r.requestMiddlewares.l,
+		},
+		templates:  r.templates,
+		translator: r.translator,
 	}
 }
 
@@ -162,10 +171,6 @@ func (r *router) Port() int {
 
 func (r *router) Database() database.Database {
 	return r.database
-}
-
-func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	r.mux.ServeHTTP(w, req)
 }
 
 func (r *router) normalize(path string) string {
@@ -197,7 +202,7 @@ func (r *router) serve(method, urlPath string, controller, action string, a Acti
 		return errRouter{err}
 	}
 
-	r.mux.Handle(pattern, r.middlewares.Wrap(a.wrap(controller, action, tpl, r.translator)))
+	r.mux.Handle(pattern, r.requestMiddlewares.Wrap(a.wrap(controller, action, tpl, r.translator)))
 	return r
 }
 
@@ -241,8 +246,13 @@ func (r *router) Module(m Module) Router {
 	return m(r)
 }
 
-func (r *router) Middleware(m Middleware) Router {
-	r.middlewares.Apply(m)
+func (r *router) GlobalMiddleware(m Middleware) Router {
+	r.globalMiddlewares.Apply(m)
+	return r
+}
+
+func (r *router) RequestMiddleware(m Middleware) Router {
+	r.requestMiddlewares.Apply(m)
 	return r
 }
 
@@ -413,10 +423,18 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource) Router {
 	return nr
 }
 
+// Handler creates an HTTP handler for this router that can be used to launch
+func (r *router) Handler() http.Handler {
+	return r.globalMiddlewares.Wrap(r.mux)
+}
+
 // Run starts the HTTP server using the router as the handler on the specified port or default port 8080 if unset.
 // It retrieves the port from the PORT environment variable and logs the server address before starting it.
 func (r *router) Run() error {
-	return Serve(r, r.port)
+	if r.parent != nil {
+		return r.parent.Run()
+	}
+	return Serve(r.Handler(), r.port)
 }
 
 func Serve(h http.Handler, port int) error {
@@ -481,15 +499,15 @@ func (e errRouter) Database() database.Database {
 	return nil
 }
 
-func (e errRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	return
-}
-
 func (e errRouter) Module(m Module) Router {
 	return e
 }
 
-func (e errRouter) Middleware(m Middleware) Router {
+func (e errRouter) GlobalMiddleware(m Middleware) Router {
+	return e
+}
+
+func (e errRouter) RequestMiddleware(m Middleware) Router {
 	return e
 }
 
@@ -539,6 +557,10 @@ func (e errRouter) Resource(r Resource) Router {
 
 func (e errRouter) ResourceAtPath(path string, r Resource) Router {
 	return e
+}
+
+func (e errRouter) Handler() http.Handler {
+	return nil
 }
 
 func (e errRouter) Run() error {

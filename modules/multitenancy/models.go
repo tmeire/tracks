@@ -18,7 +18,7 @@ type Tenant struct {
 
 // TableName returns the name of the database table for this model
 func (t *Tenant) TableName() string {
-	return "Tenants"
+	return "tenants"
 }
 
 // Fields returns the list of field names for this model

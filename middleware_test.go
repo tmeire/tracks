@@ -8,7 +8,7 @@ import (
 )
 
 func TestMiddlewares_Wrap(t *testing.T) {
-	// Test that middlewares are applied in reverse order (last added, first executed)
+	// Test that globalMiddlewares are applied in reverse order (last added, first executed)
 	t.Run("Middlewares are applied in reverse order", func(t *testing.T) {
 		// Create a slice to record the order of middleware execution
 		var executionOrder []string
@@ -29,13 +29,13 @@ func TestMiddlewares_Wrap(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		// Create a middlewares struct and add the middlewares in order
+		// Create a globalMiddlewares struct and add the globalMiddlewares in order
 		ms := middlewares{}
 		ms.Apply(m(1))
 		ms.Apply(m(2))
 		ms.Apply(m(3))
 
-		// Wrap the final handler with the middlewares
+		// Wrap the final handler with the globalMiddlewares
 		wrappedHandler := ms.Wrap(finalHandler)
 
 		// Create a test request
