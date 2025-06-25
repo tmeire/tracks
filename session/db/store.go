@@ -57,11 +57,13 @@ func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 
 	// Create a new session data object
 	sess := &sessionData{
-		store:    s,
-		Id:       model.ID,
-		Data:     data,
-		FlashOld: flash,
-		FlashNew: make(map[string]string),
+		store:     s,
+		Id:        model.ID,
+		createdAt: model.CreatedAt,
+		updatedAt: model.UpdatedAt,
+		Data:      data,
+		FlashOld:  flash,
+		FlashNew:  make(map[string]string),
 	}
 	return sess, true
 }
@@ -70,15 +72,6 @@ func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 func (s *Store) Create(ctx context.Context) session.Session {
 	// Generate a new session ID
 	id := generateSessionID()
-
-	// Create a new session data object
-	sess := &sessionData{
-		store:    s,
-		Id:       id,
-		Data:     make(map[string]string),
-		FlashOld: make(map[string]string),
-		FlashNew: make(map[string]string),
-	}
 
 	// Create a new session model
 	now := time.Now()
@@ -99,16 +92,26 @@ func (s *Store) Create(ctx context.Context) session.Session {
 		fmt.Println("Error creating session in database:", err)
 	}
 
-	return sess
+	return &sessionData{
+		store:     s,
+		Id:        id,
+		createdAt: model.CreatedAt,
+		updatedAt: model.UpdatedAt,
+		Data:      make(map[string]string),
+		FlashOld:  make(map[string]string),
+		FlashNew:  make(map[string]string),
+	}
 }
 
 // sessionData implements the session.Session interface
 type sessionData struct {
-	store    *Store
-	Id       string
-	Data     map[string]string
-	FlashOld map[string]string
-	FlashNew map[string]string
+	store     *Store
+	Id        string
+	createdAt time.Time
+	updatedAt time.Time
+	Data      map[string]string
+	FlashOld  map[string]string
+	FlashNew  map[string]string
 }
 
 func (s *sessionData) Authenticate(userId string) {
@@ -161,6 +164,7 @@ func (s *sessionData) FlashMessages() map[string]string {
 func (s *sessionData) Save(ctx context.Context) error {
 	model := &SessionModel{
 		ID:        s.Id,
+		CreatedAt: s.createdAt,
 		UpdatedAt: time.Now(),
 	}
 

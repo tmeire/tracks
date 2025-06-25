@@ -112,6 +112,9 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, sessionKey, session)
 	r = r.WithContext(ctx)
 
+	session.Put("ip", r.RemoteAddr)
+	session.Put("user_agent", r.UserAgent())
+
 	m.next.ServeHTTP(w, r)
 
 	err := session.Save(ctx)
