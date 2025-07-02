@@ -24,7 +24,7 @@ var migrations embed.FS
 func NewStore(ctx context.Context, db database.Database) (*Store, error) {
 	err := database.MigrateUpFS(ctx, db, database.CentralDatabase, migrations)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to migrate session database: %w", err)
 	}
 
 	s := &Store{
@@ -38,6 +38,7 @@ func NewStore(ctx context.Context, db database.Database) (*Store, error) {
 // Load retrieves a session from the database by ID
 func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 	// Load from database
+	ctx = database.WithDB(ctx, s.database)
 	model, err := s.repository.FindByID(ctx, id)
 	if err != nil || model == nil {
 		return nil, false
@@ -68,6 +69,39 @@ func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 	return sess, true
 }
 
+func (s *Store) update(ctx context.Context, d *sessionData) error {
+	model := &SessionModel{
+		ID:        d.Id,
+		CreatedAt: d.createdAt,
+		UpdatedAt: time.Now(),
+	}
+
+	// Marshal the data
+	err := model.MarshalData(d.Data)
+	if err != nil {
+		return err
+	}
+
+	// Marshal the data
+	err = model.MarshalFlash(d.FlashNew)
+	if err != nil {
+		return err
+	}
+
+	ctx = database.WithDB(ctx, s.database)
+
+	// Update in database
+	err = s.repository.Update(ctx, model)
+	if err != nil {
+		return err
+	}
+
+	// Move flash messages
+	d.FlashOld = d.FlashNew
+	d.FlashNew = make(map[string]string)
+	return nil
+}
+
 // Create creates a new session in the database
 func (s *Store) Create(ctx context.Context) session.Session {
 	// Generate a new session ID
@@ -82,6 +116,8 @@ func (s *Store) Create(ctx context.Context) session.Session {
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+
+	ctx = database.WithDB(ctx, s.database)
 
 	// Save to database
 	_, err := s.repository.Create(ctx, model)
@@ -100,6 +136,41 @@ func (s *Store) Create(ctx context.Context) session.Session {
 		Data:      make(map[string]string),
 		FlashOld:  make(map[string]string),
 		FlashNew:  make(map[string]string),
+	}
+}
+
+func (s *Store) invalidate(ctx context.Context, d *sessionData) {
+	ctx = database.WithDB(ctx, s.database)
+
+	// DeleteFunc from database
+	model := &SessionModel{
+		ID: d.Id,
+	}
+	err := s.repository.Delete(ctx, model)
+	if err != nil {
+		span := trace.SpanFromContext(ctx)
+		span.RecordError(err)
+	}
+
+	// Generate a new session ID
+	d.Id = generateSessionID()
+	d.Data = make(map[string]string)
+	d.FlashOld = make(map[string]string)
+	d.FlashNew = make(map[string]string)
+
+	// Create a new session in the database
+	now := time.Now()
+	newModel := &SessionModel{
+		ID:        d.Id,
+		Data:      "{}",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	_, err = s.repository.Create(ctx, newModel)
+	if err != nil {
+		span := trace.SpanFromContext(ctx)
+		span.RecordError(err)
 	}
 }
 
@@ -162,70 +233,12 @@ func (s *sessionData) FlashMessages() map[string]string {
 
 // Save persists the current session state to the database
 func (s *sessionData) Save(ctx context.Context) error {
-	model := &SessionModel{
-		ID:        s.Id,
-		CreatedAt: s.createdAt,
-		UpdatedAt: time.Now(),
-	}
-
-	// Marshal the data
-	err := model.MarshalData(s.Data)
-	if err != nil {
-		return err
-	}
-
-	// Marshal the data
-	err = model.MarshalFlash(s.FlashNew)
-	if err != nil {
-		return err
-	}
-
-	// Update in database
-	err = s.store.repository.Update(ctx, model)
-	if err != nil {
-		return err
-	}
-
-	// Move flash messages
-	s.FlashOld = s.FlashNew
-	s.FlashNew = make(map[string]string)
-
-	return nil
+	return s.store.update(ctx, s)
 }
 
 // Invalidate invalidates the session
 func (s *sessionData) Invalidate(ctx context.Context) {
-	ctx = database.WithDB(ctx, s.store.database)
-
-	// DeleteFunc from database
-	model := &SessionModel{
-		ID: s.Id,
-	}
-	err := s.store.repository.Delete(ctx, model)
-	if err != nil {
-		span := trace.SpanFromContext(ctx)
-		span.RecordError(err)
-	}
-
-	// Generate a new session ID
-	s.Id = generateSessionID()
-	s.Data = make(map[string]string)
-	s.FlashOld = make(map[string]string)
-	s.FlashNew = make(map[string]string)
-
-	// Create a new session in the database
-	now := time.Now()
-	newModel := &SessionModel{
-		ID:        s.Id,
-		Data:      "{}",
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_, err = s.store.repository.Create(ctx, newModel)
-	if err != nil {
-		span := trace.SpanFromContext(ctx)
-		span.RecordError(err)
-	}
+	s.store.invalidate(ctx, s)
 }
 
 // generateSessionID generates a random session ID

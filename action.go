@@ -138,15 +138,18 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 			return nil
 		}
 	}
+
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
+	defer span.End()
+
 	if a.template == nil {
-		return fmt.Errorf("template not found")
+		err := fmt.Errorf("template not found")
+		span.RecordError(err)
+		return err
 	}
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(resp.StatusCode)
-
-	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
-	defer span.End()
 
 	lang := i18n.LanguageFromContext(ctx)
 

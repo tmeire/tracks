@@ -1,0 +1,19 @@
+# Database configuration
+development:
+  driver: sqlite3
+  database: db/<<.AppName>>_development.db
+
+test:
+  driver: sqlite3
+  database: db/<<.AppName>>_test.db
+
+production:
+  driver: sqlite3
+  database: db/<<.AppName>>_production.db
+  # For production, consider using a more robust database like PostgreSQL or MySQL
+  # driver: postgres
+  # database: <<.AppName>>_production
+  # host: localhost
+  # port: 5432
+  # username: postgres
+  # password: password

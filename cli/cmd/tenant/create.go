@@ -51,6 +51,7 @@ func CreateCmd() *cobra.Command {
 			}
 
 			// Open a connection to the central database
+			// TODO: this needs to be loaded from the config file
 			centralDB, err := sqlite.New(filepath.Join(".", "data", "tracks.sqlite"))
 			if err != nil {
 				fmt.Printf("Failed to connect to database: %v\n", err)

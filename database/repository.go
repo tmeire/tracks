@@ -2,8 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,33 +18,37 @@ func NewRepository[S Schema, T Model[S, T]](schema S) *Repository[S, T] {
 	return &Repository[S, T]{schema: schema}
 }
 
+// Select creates a new QueryBuilder with the specified fields
+func (r *Repository[S, T]) Select(fields ...string) WhereableQuery[S, T] {
+	var zero T
+	if len(fields) == 0 {
+		fields = zero.Fields()
+	}
+	return &QueryBuilder[S, T]{
+		repo:      r,
+		fields:    fields,
+		tableName: zero.TableName(),
+	}
+}
+
+// FindBy retrieves records that match the given search criteria
+func (r *Repository[S, T]) FindBy(ctx context.Context, criteria map[string]any) ([]T, error) {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findby")
+	defer span.End()
+
+	s := r.Select()
+	for field, value := range criteria {
+		s = s.Where(fmt.Sprintf("%s = ?", field), value)
+	}
+	return s.Execute(ctx)
+}
+
 // FindAll retrieves all records of the model type from the database
 func (r *Repository[S, T]) FindAll(ctx context.Context) ([]T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findall")
 	defer span.End()
 
-	// GetFunc a zero value of T to access the table name and fields
-	var zero T
-	query := fmt.Sprintf("SELECT id, %s FROM %s",
-		strings.Join(zero.Fields(), ", "),
-		zero.TableName())
-
-	rows, err := FromContext(ctx).QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []T
-	for rows.Next() {
-		model, err := zero.Scan(ctx, r.schema, rows)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, model)
-	}
-
-	return results, nil
+	return r.Select().Execute(ctx)
 }
 
 // FindByID retrieves a record by its ID
@@ -54,21 +56,15 @@ func (r *Repository[S, T]) FindByID(ctx context.Context, id any) (T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findbyid")
 	defer span.End()
 
-	var zero T
+	return r.Select().Where("id = ?", id).First(ctx)
+}
 
-	query := fmt.Sprintf("SELECT id, %s FROM %s WHERE id = ?",
-		strings.Join(zero.Fields(), ", "),
-		zero.TableName())
+// Count returns the total number of records in the table
+func (r *Repository[S, T]) Count(ctx context.Context) (int, error) {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.count")
+	defer span.End()
 
-	row := FromContext(ctx).QueryRowContext(ctx, query, id)
-
-	model, err := zero.Scan(ctx, r.schema, row)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		var empty T
-		return empty, err
-	}
-
-	return model, nil
+	return r.Select().Count(ctx)
 }
 
 // Create inserts a new record into the database
@@ -153,83 +149,4 @@ func (r *Repository[S, T]) Delete(ctx context.Context, model T) error {
 
 	_, err := FromContext(ctx).ExecContext(ctx, query, model.GetID())
 	return err
-}
-
-// Select creates a new QueryBuilder with the specified fields
-func (r *Repository[S, T]) Select(fields ...string) WhereableQuery[S, T] {
-	var zero T
-	return &QueryBuilder[S, T]{
-		repo:      r,
-		fields:    fields,
-		tableName: zero.TableName(),
-	}
-}
-
-// FindBy retrieves records that match the given search criteria
-func (r *Repository[S, T]) FindBy(ctx context.Context, criteria map[string]any) ([]T, error) {
-	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.findby")
-	defer span.End()
-
-	var zero T
-
-	// Build WHERE clause
-	var whereConditions []string
-	var args []any
-
-	for field, value := range criteria {
-		whereConditions = append(whereConditions, fmt.Sprintf("%s = ?", field))
-		args = append(args, value)
-	}
-
-	whereClause := ""
-	if len(whereConditions) > 0 {
-		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
-	}
-
-	query := fmt.Sprintf("SELECT id, %s FROM %s %s",
-		strings.Join(zero.Fields(), ", "),
-		zero.TableName(),
-		whereClause)
-
-	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []T
-	for rows.Next() {
-		model, err := zero.Scan(ctx, r.schema, rows)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, model)
-	}
-
-	return results, nil
-}
-
-// Count returns the total number of records in the table
-func (r *Repository[S, T]) Count(ctx context.Context) (int, error) {
-	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.count")
-	defer span.End()
-
-	var zero T
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", zero.TableName())
-
-	rows, err := FromContext(ctx).QueryContext(ctx, query)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return 0, fmt.Errorf("failed to get count from %s", zero.TableName())
-	}
-
-	var count int
-	if err := rows.Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
 }

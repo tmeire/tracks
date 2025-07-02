@@ -1,0 +1,30 @@
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/otel"
+	"<<.PackageName>>/controllers"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Set up OpenTelemetry
+	tp, err := otel.SetupTracerProvider(ctx, "<<.AppName>>")
+	if err != nil {
+		log.Printf("Warning: failed to initialize tracer provider: %v", err)
+	} else {
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				log.Printf("Error shutting down tracer provider: %v", err)
+			}
+		}()
+	}
+
+	tracks.New(ctx).
+    	GetFunc("/", "default", "home", controllers.Home).
+    	Run()
+}

@@ -1,0 +1,42 @@
+# <<.AppName>>
+
+This is a new application built with the Tracks framework.
+
+## Getting Started
+
+1. Run the server:
+   ```
+   go run main.go
+   ```
+
+2. Open your browser and navigate to http://localhost:3000
+
+## Project Structure
+
+- `/controllers` - Application controllers
+- `/models` - Data models
+- `/views` - View templates
+- `/public` - Static assets
+- `/config` - Configuration files
+- `/db` - Database migrations and seeds
+
+## Commands
+
+Generate a new controller:
+```
+tracks generate controller get /about
+```
+
+Generate a new resource:
+```
+tracks generate resource posts
+```
+
+Run database migrations:
+```
+tracks db migrate
+```
+
+## Learn More
+
+For more information about Tracks, visit [github.com/tmeire/tracks](https://github.com/tmeire/tracks).

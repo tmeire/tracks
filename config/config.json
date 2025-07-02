@@ -1,0 +1,23 @@
+{
+  "name": "tracks",
+  "port": 8080,
+  "base_domain": "tracks.local:8080",
+
+  "sessions": {
+    "store": {
+      "type": "db",
+      "config": {
+        "type": "sqlite",
+        "config": {
+          "path": ":memory:"
+        }
+      }
+    }
+  },
+  "database": {
+    "type": "sqlite",
+    "config": {
+      "path": ":memory:"
+    }
+  }
+}

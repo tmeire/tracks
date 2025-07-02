@@ -7,8 +7,6 @@ import (
 	"os"
 	"path"
 	"testing"
-
-	"github.com/tmeire/tracks/database/sqlite"
 )
 
 // Product is a test struct for the Resource test
@@ -107,20 +105,10 @@ func TestResource(t *testing.T) {
 		os.RemoveAll("views/product/")
 	}()
 
-	// Create a temporary database for testing
-	tempDB, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer tempDB.Close()
-
 	// Create a new router
-	router := New(t.Context(), tempDB)
-
-	// Module the resource
-	router.Resource(ProductResource{})
-
-	h, _ := router.Handler()
+	h, _ := New(t.Context()).
+		Resource(ProductResource{}).
+		Handler()
 
 	// Test Index action
 	t.Run("Index Action", func(t *testing.T) {

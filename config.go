@@ -2,15 +2,17 @@ package tracks
 
 import (
 	"encoding/json"
-	"github.com/tmeire/tracks/session"
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/session/config"
 	"os"
 	"path/filepath"
 )
 
 type Config struct {
-	Port       int            `json:"port"`
-	BaseDomain string         `json:"base_domain"`
-	Sessions   session.Config `json:"sessions"`
+	Port       int             `json:"port"`
+	BaseDomain string          `json:"base_domain"`
+	Sessions   config.Config   `json:"sessions"`
+	Database   database.Config `json:"database"`
 }
 
 func loadConfig() (config Config, err error) {

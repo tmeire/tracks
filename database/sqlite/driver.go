@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -10,12 +11,10 @@ import (
 
 	"github.com/XSAM/otelsql"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-
-	"github.com/tmeire/tracks/database"
 )
 
 // New creates a new SQLite database connection with OpenTelemetry tracing
-func New(dbPath string) (database.Database, error) {
+func New(dbPath string) (*sql.DB, error) {
 	// Ensure the directory exists
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)

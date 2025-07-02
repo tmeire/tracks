@@ -1,0 +1,12 @@
+package controllers
+
+import (
+	"net/http"
+)
+
+// Home is the default controller action
+func Home(r *http.Request) (any, error) {
+	return map[string]string{
+		"message": "Welcome to your new Tracks application!",
+	}, nil
+}

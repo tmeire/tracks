@@ -1,0 +1,48 @@
+# Stage 1: Build the application
+FROM golang:1.24 AS builder
+
+WORKDIR /app
+
+# Copy go.mod and go.sum files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN --mount=type=cache,target=/go/pkg/mod/ \
+    --mount=type=cache,target=/root/.cache/go-build/ \
+    go mod download
+
+# Copy the source code
+COPY . .
+
+# Run the asset hashing command
+RUN  --mount=type=cache,target=/go/pkg/mod/ \
+     --mount=type=cache,target=/root/.cache/go-build/ \
+     go run github.com/tmeire/tracks/cli assets compile --remove-original
+
+# Build the application
+RUN  --mount=type=cache,target=/go/pkg/mod/ \
+     --mount=type=cache,target=/root/.cache/go-build/ \
+     go build -o <<.AppName>> -ldflags="-w -s" .
+
+# Stage 2: Create a minimal runtime image
+FROM gcr.io/distroless/base-debian12:nonroot
+
+WORKDIR /app
+
+# Copy the binary from the builder stage
+COPY --from=builder /app/<<.AppName>> .
+
+# Copy static files and views
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/views ./views
+COPY --from=builder /app/db/migrations ./db/migrations
+COPY --from=builder /app/config ./config
+
+# Set environment variables
+ENV PORT=8080
+
+# Expose the port the app runs on
+EXPOSE 8080
+
+# Run the application
+CMD ["./<<.AppName>>"]

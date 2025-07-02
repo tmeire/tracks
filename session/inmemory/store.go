@@ -1,9 +1,11 @@
 package inmemory
 
 import (
-	"github.com/tmeire/tracks/session"
+	"context"
 	"sync"
 	"time"
+
+	"github.com/tmeire/tracks/session"
 )
 
 type Store struct {
@@ -17,7 +19,7 @@ func NewStore() *Store {
 	}
 }
 
-func (s *Store) Load(id string) (session.Session, bool) {
+func (s *Store) Load(_ context.Context, id string) (session.Session, bool) {
 	s.sessMu.RLock()
 	defer s.sessMu.RUnlock()
 
@@ -25,7 +27,7 @@ func (s *Store) Load(id string) (session.Session, bool) {
 	return session, ok
 }
 
-func (s *Store) Create() session.Session {
+func (s *Store) Create(_ context.Context) session.Session {
 	session := &sessionData{
 		Id:   generateSessionID(),
 		Data: make(map[string]string),

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"github.com/stretchr/testify/assert"
-	"github.com/tmeire/tracks/database/sqlite"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,14 +12,7 @@ import (
 )
 
 func TestRouter_Get(t *testing.T) {
-	// Create a temporary database for testing
-	tempDB, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer tempDB.Close()
-
-	err = writeTemplate("views/default/test.gohtml", `{{.}}`)
+	err := writeTemplate("views/default/test.gohtml", `{{.}}`)
 	if err != nil {
 		t.Fatalf("Failed to create template file: %v", err)
 	}
@@ -47,7 +39,7 @@ func TestRouter_Get(t *testing.T) {
 	}()
 
 	// Create a new router and register a simple handler using Action
-	h, err := New(t.Context(), tempDB).
+	h, err := New(t.Context()).
 		GetFunc("/test", "default", "test", func(r *http.Request) (any, error) {
 			// Return an opaque data object, which will automatically get a StatusOK
 			return "Hello, Test!", nil
@@ -179,15 +171,8 @@ func TestRouter_Get(t *testing.T) {
 }
 
 func TestRouter_Get_WithError(t *testing.T) {
-	// Create a temporary database for testing
-	tempDB, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer tempDB.Close()
-
 	// Create a new router and register a handler that returns an error
-	h, err := New(t.Context(), tempDB).
+	h, err := New(t.Context()).
 		GetFunc("/error", "default", "error", func(r *http.Request) (any, error) {
 			// Return a Response object with error data
 			return &Response{

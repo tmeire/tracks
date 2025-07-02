@@ -55,8 +55,10 @@ func MigrateUpDir(ctx context.Context, db Database, dbType Type, migrationsDir s
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
 
-	if err := goose.UpContext(ctx, rawDB, migrationsDir); err != nil {
-		return fmt.Errorf("failed to apply migrations: %w", err)
+	if err := goose.UpContext(ctx, rawDB, migrationsDir, goose.WithAllowMissing()); err != nil {
+		if !errors.Is(err, goose.ErrNoMigrationFiles) {
+			return fmt.Errorf("failed to apply migrations: %w", err)
+		}
 	}
 	fmt.Printf("Applied %s migrations\n", dbType)
 	return nil

@@ -58,6 +58,7 @@ type ExecutableQuery[S Schema, T Model[S, T]] interface {
 	// Execute runs the query and returns the results
 	Execute(ctx context.Context) ([]T, error)
 	First(ctx context.Context) (T, error)
+	Count(ctx context.Context) (int, error)
 }
 
 // Query is the base interface for all query types
@@ -113,7 +114,11 @@ func (q *QueryBuilder[S, T]) Offset(offset int) ExecutableQuery[S, T] {
 func (q *QueryBuilder[S, T]) Build() (string, []any) {
 	var fields string
 	if len(q.fields) > 0 {
-		fields = "id, " + strings.Join(q.fields, ", ")
+		if strings.HasPrefix(q.fields[0], "COUNT") {
+			fields = q.fields[0]
+		} else {
+			fields = "id, " + strings.Join(q.fields, ", ")
+		}
 	} else {
 		fields = "*"
 	}
@@ -184,4 +189,29 @@ func (q *QueryBuilder[S, T]) First(ctx context.Context) (T, error) {
 		return zero, err
 	}
 	return res, nil
+}
+
+// Count counts the number of rows in the query resultset
+func (q *QueryBuilder[S, T]) Count(ctx context.Context) (int, error) {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "querybuilder.count")
+	defer span.End()
+
+	q.fields = []string{"COUNT(*)"}
+
+	query, args := q.Build()
+
+	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	if !rows.Next() {
+		return 0, fmt.Errorf("failed to get count from %s", q.tableName)
+	}
+
+	var count int
+	if err := rows.Scan(&count); err != nil {
+		panic(err)
+	}
+	return count, nil
 }

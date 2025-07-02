@@ -17,8 +17,6 @@ import (
 	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/i18n"
 	"github.com/tmeire/tracks/otel"
-	"github.com/tmeire/tracks/session"
-	sessiondb "github.com/tmeire/tracks/session/db"
 )
 
 type Router interface {
@@ -59,10 +57,16 @@ type router struct {
 }
 
 // New creates a new router with a database-backed session store
-func New(ctx context.Context, db database.Database) Router {
+func New(ctx context.Context) Router {
 	conf, err := loadConfig()
 	if err != nil {
 		log.Printf("Failed to load config: %v", err)
+		return errRouter{err: err}
+	}
+
+	db, err := conf.Database.Create(ctx)
+	if err != nil {
+		log.Printf("Failed to create database connection: %v", err)
 		return errRouter{err: err}
 	}
 
@@ -132,12 +136,12 @@ func New(ctx context.Context, db database.Database) Router {
 	r.GlobalMiddleware(i18n.Middleware("en"))
 
 	// Set up sessions for all the domains
-	store, err := sessiondb.NewStore(ctx, db)
+	sessionMW, err := conf.Sessions.Middleware(ctx, conf.BaseDomain)
 	if err != nil {
-		log.Printf("Failed to create session store: %v", err)
+		log.Printf("Failed to create session middleware: %v", err)
 		return errRouter{err: err}
 	}
-	r.GlobalMiddleware(session.Middleware(conf.BaseDomain, store))
+	r.GlobalMiddleware(sessionMW)
 
 	return r
 }

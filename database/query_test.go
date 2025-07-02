@@ -95,7 +95,7 @@ func TestQueryBuilding(t *testing.T) {
 			setupQuery: func(repo *Repository[*schema, TestProduct]) Query {
 				return repo.Select()
 			},
-			expectedSQL:  "SELECT * FROM products",
+			expectedSQL:  "SELECT id, name, price FROM products",
 			expectedArgs: []any{},
 		},
 		{
