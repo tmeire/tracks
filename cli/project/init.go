@@ -107,8 +107,8 @@ func createDirectoryStructure(projectDir string) error {
 		"public/js",
 		"public/images",
 		"config",
-		"db",
-		"db/migrations",
+		"data",
+		"migrations/central",
 	}
 
 	for _, dir := range dirs {
@@ -147,14 +147,14 @@ func createInitialFiles(projectDir, moduleName string) error {
 	}
 
 	// Create database configuration
-	if err := createDatabaseConfig(projectDir); err != nil {
+	if err := createConfigFile(projectDir); err != nil {
 		return err
 	}
 
 	// Create OpenTelemetry configuration
-	if err := createOtelConfig(projectDir); err != nil {
-		return err
-	}
+	//if err := createOtelConfig(projectDir); err != nil {
+	//	return err
+	//}
 
 	// Create README.md
 	if err := createReadme(projectDir); err != nil {
@@ -234,15 +234,15 @@ func createLayout(projectDir string) error {
 	)
 }
 
-func createDatabaseConfig(projectDir string) error {
+func createConfigFile(projectDir string) error {
 	appName := filepath.Base(projectDir)
 	data := map[string]string{
 		"AppName": strings.ToLower(appName),
 	}
 
 	return renderTemplate(
-		"init/config/database.yml.tmpl",
-		filepath.Join(projectDir, "config", "database.yml"),
+		"init/config/config.json.tmpl",
+		filepath.Join(projectDir, "config", "config.json"),
 		data,
 	)
 }

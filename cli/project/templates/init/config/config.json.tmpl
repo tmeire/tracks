@@ -5,10 +5,19 @@
 
   "sessions": {
     "store": {
-      "type": "sqlite",
+      "type": "db",
       "config": {
-        "path": "./data/<<.AppName>>.db"
+        "type": "sqlite",
+        "config": {
+          "path": "./data/<<.AppName>>.db"
+        }
       }
+    }
+  },
+  "database": {
+    "type": "sqlite",
+    "config": {
+        "path": "./data/<<.AppName>>.db"
     }
   }
 }
