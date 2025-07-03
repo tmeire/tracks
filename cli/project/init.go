@@ -188,6 +188,10 @@ func createInitialFiles(projectDir, moduleName string) error {
 		return err
 	}
 
+	if err := renderTemplate("init/air.toml.tmpl", filepath.Join(projectDir, ".air.toml"), nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
