@@ -7,6 +7,10 @@ import (
 )
 
 type Controller interface {
+	Register(router Router) Router
+}
+
+type ActionController interface {
 	Index(r *http.Request) (any, error)
 }
 

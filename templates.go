@@ -1,7 +1,9 @@
 package tracks
 
 import (
+	"fmt"
 	"html/template"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,26 +12,35 @@ import (
 type Templates struct {
 	fns     template.FuncMap
 	basedir string
-	layout  *template.Template
+	layouts map[string]*template.Template
 }
 
 // Func adds a new function to templates that are loaded after this call
 func (t *Templates) Func(name string, fn any) {
 	t.fns[name] = fn
-	t.layout = nil
+	t.layouts = nil
 }
 
-func (t *Templates) loadLayout() (*template.Template, error) {
+func (t *Templates) loadLayout(name string) (*template.Template, error) {
+	filename := fmt.Sprintf("%s.gohtml", name)
+
 	layout, err := template.
-		New("application.gohtml").
+		New(filename).
 		Funcs(t.fns).
 		Option("missingkey=error").
-		ParseFiles(filepath.Join(t.basedir, "layouts", "application.gohtml"))
+		ParseFiles(filepath.Join(t.basedir, "layouts", filename))
 
 	if err != nil {
 		return nil, err
 	}
 
+	// Add the layout with a shared name "page" to make sure we don't have to pass the name of the layout file around.
+	layout, err = layout.AddParseTree("page", layout.Lookup(filename).Tree)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find and load all partial templates into the layout
 	partials, err := filepath.Glob(filepath.Join(t.basedir, "*", "_*.gohtml"))
 	if err != nil {
 		return nil, err
@@ -61,19 +72,20 @@ func (t *Templates) loadLayout() (*template.Template, error) {
 }
 
 // Load loads the view associated with the controller and action from the templates directory. It will load the
-// base layout from "./{{basedir}}/layouts/application.gohtml", the view file from
+// base layouts from "./{{basedir}}/layouts/{{layout}}.gohtml", the view file from
 // "./{{basedir}}/{{controller}}/{{action}}.gohtml" and makes sure the two are properly linked together. The resulting
 // template has access to all functions that were registered before the call to Load.
 //
 // Not thread-safe!
-func (t *Templates) Load(controller, action string) (*template.Template, error) {
-	if t.layout == nil {
-		layout, err := t.loadLayout()
+func (t *Templates) Load(layout, controller, action string) (*template.Template, error) {
+	if _, ok := t.layouts[layout]; !ok {
+		_layout, err := t.loadLayout(layout)
 		if err != nil {
+			slog.Warn("failed to load layout", "name", layout, "error", err)
 			// Let's ignore it, could be an API-only app
 			return nil, nil
 		}
-		t.layout = layout
+		t.layouts[layout] = _layout
 	}
 
 	// Construct the template path
@@ -85,7 +97,7 @@ func (t *Templates) Load(controller, action string) (*template.Template, error) 
 		return nil, nil
 	}
 
-	page, err := t.layout.Clone()
+	page, err := t.layouts[layout].Clone()
 	if err != nil {
 		return nil, err
 	}

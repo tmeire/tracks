@@ -36,7 +36,7 @@ func TestMiddlewares_Wrap(t *testing.T) {
 		ms.Apply(m(3))
 
 		// Wrap the final handler with the globalMiddlewares
-		wrappedHandler, err := ms.Wrap(finalHandler)
+		wrappedHandler, err := ms.Wrap(nil, finalHandler)
 		if err != nil {
 			t.Fatal(err)
 		}

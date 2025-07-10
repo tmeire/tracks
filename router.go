@@ -32,14 +32,16 @@ type Router interface {
 	Views(path string) Router
 	Page(path string, view string) Router
 	Redirect(origin string, destination string) Router
-	Get(path string, controller, action string, r Controller) Router
-	GetFunc(path string, controller, action string, r Action) Router
-	PostFunc(path string, controller, action string, r Action) Router
-	PutFunc(path string, controller, action string, r Action) Router
-	PatchFunc(path string, controller, action string, r Action) Router
-	DeleteFunc(path string, controller, action string, r Action) Router
-	Resource(r Resource) Router
-	ResourceAtPath(path string, r Resource) Router
+	Serve(a Action) Router
+	Controller(c Controller) Router
+	Get(path string, controller, action string, r ActionController, mws ...MiddlewareBuilder) Router
+	GetFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
+	PostFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
+	PutFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
+	PatchFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
+	DeleteFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
+	Resource(r Resource, mws ...MiddlewareBuilder) Router
+	ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router
 	Handler() (http.Handler, error)
 	Run() error
 }
@@ -91,6 +93,7 @@ func New(ctx context.Context) Router {
 		translator:         translator,
 		templates: Templates{
 			basedir: "./views",
+			layouts: make(map[string]*template.Template),
 			fns: template.FuncMap{
 				"t": func(key string) template.HTML {
 					// This is a placeholder implementation to make sure the templates can be loaded on boot.
@@ -190,26 +193,32 @@ func (r *router) normalize(path string) string {
 	return path
 }
 
+const defaultLayout = "application"
+
 // serve is a helper method for the router type that registers a handler for a specific HTTP method
 // and path in the ServeMux. It constructs a key using the HTTP method and a normalized path,
-// then registers the provided Action as the handler for that key.
+// then registers the provided ActionFunc as the handler for that key.
 //
 // Parameters:
 // - method: the HTTP method (e.g., "GET", "POST", etc.).
 // - path: the URL path for which the handler should be registered.
-// - r: the Action function that handles HTTP requests.
-func (r *router) serve(method, urlPath string, controller, action string, a Action) Router {
+// - r: the ActionFunc function that handles HTTP requests.
+func (r *router) serve(method, urlPath string, controller, action string, a ActionFunc, layout string, mws ...MiddlewareBuilder) Router {
 	normalizedPath := r.normalize(urlPath)
 
 	pattern := method + " " + normalizedPath
 	println(pattern)
 
-	tpl, err := r.templates.Load(controller, action)
+	if layout == "" {
+		layout = defaultLayout
+	}
+
+	tpl, err := r.templates.Load(layout, controller, action)
 	if err != nil {
 		return errRouter{err}
 	}
 
-	h, err := r.requestMiddlewares.Wrap(a.wrap(controller, action, tpl, r.translator))
+	h, err := r.requestMiddlewares.Wrap(r, a.wrap(controller, action, tpl, r.translator), mws...)
 	if err != nil {
 		return errRouter{err}
 	}
@@ -275,7 +284,7 @@ func (r *router) Func(name string, fn any) Router {
 
 func (r *router) Views(path string) Router {
 	r.templates.basedir = path
-	r.templates.layout = nil
+	r.templates.layouts = make(map[string]*template.Template)
 	return r
 }
 
@@ -315,63 +324,71 @@ func (r *router) Redirect(origin string, destination string) Router {
 	return r
 }
 
+func (r *router) Serve(a Action) Router {
+	return r.serve(a.Method, a.Path, a.Controller, a.Name, a.Func, a.Layout, a.Middlewares...)
+}
+
+func (r *router) Controller(c Controller) Router {
+	return c.Register(r)
+}
+
 // Get registers a handler for HTTP GET requests to the specified path.
 //
 // Parameters:
 // - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP GET request.
-func (r *router) Get(path string, controller, action string, c Controller) Router {
+// - r: the ActionFunc to handle the HTTP GET request.
+func (r *router) Get(path string, controller, action string, c ActionController, mws ...MiddlewareBuilder) Router {
 	if nr, needsRouter := c.(interface {
 		Inject(r Router)
 	}); needsRouter {
 		nr.Inject(r)
 	}
-	return r.serve(http.MethodGet, path, controller, action, c.Index)
+	return r.serve(http.MethodGet, path, controller, action, c.Index, defaultLayout, mws...)
 }
 
 // GetFunc registers a handler for HTTP GET requests to the specified path.
 //
 // Parameters:
 // - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP GET request.
-func (r *router) GetFunc(path string, controller, action string, a Action) Router {
-	return r.serve(http.MethodGet, path, controller, action, a)
+// - r: the ActionFunc to handle the HTTP GET request.
+func (r *router) GetFunc(path string, controller, action string, a ActionFunc, mws ...MiddlewareBuilder) Router {
+	return r.serve(http.MethodGet, path, controller, action, a, defaultLayout, mws...)
 }
 
 // PostFunc registers a handler for HTTP POST requests to the specified path.
 //
 // Parameters:
 // - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP POST request.
-func (r *router) PostFunc(path string, controller, action string, a Action) Router {
-	return r.serve(http.MethodPost, path, controller, action, a)
+// - r: the ActionFunc to handle the HTTP POST request.
+func (r *router) PostFunc(path string, controller, action string, a ActionFunc, mws ...MiddlewareBuilder) Router {
+	return r.serve(http.MethodPost, path, controller, action, a, defaultLayout, mws...)
 }
 
 // PutFunc registers a handler for HTTP PUT requests to the specified path.
 //
 // Parameters:
 // - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP PUT request.
-func (r *router) PutFunc(path string, controller, action string, a Action) Router {
-	return r.serve(http.MethodPut, path, controller, action, a)
+// - r: the ActionFunc to handle the HTTP PUT request.
+func (r *router) PutFunc(path string, controller, action string, a ActionFunc, mws ...MiddlewareBuilder) Router {
+	return r.serve(http.MethodPut, path, controller, action, a, defaultLayout, mws...)
 }
 
 // PatchFunc registers a handler for HTTP PATCH requests to the specified path.
 //
 // Parameters:
 // - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP PATCH request.
-func (r *router) PatchFunc(path string, controller, action string, a Action) Router {
-	return r.serve(http.MethodPatch, path, controller, action, a)
+// - r: the ActionFunc to handle the HTTP PATCH request.
+func (r *router) PatchFunc(path string, controller, action string, a ActionFunc, mws ...MiddlewareBuilder) Router {
+	return r.serve(http.MethodPatch, path, controller, action, a, defaultLayout, mws...)
 }
 
 // DeleteFunc registers a handler for HTTP DELETE requests to the specified path.
 //
 // Parameters:
 // - path: the URL path for which the handler should be registered.
-// - r: the Action to handle the HTTP DELETE request.
-func (r *router) DeleteFunc(path string, controller, action string, a Action) Router {
-	return r.serve(http.MethodDelete, path, controller, action, a)
+// - r: the ActionFunc to handle the HTTP DELETE request.
+func (r *router) DeleteFunc(path string, controller, action string, a ActionFunc, mws ...MiddlewareBuilder) Router {
+	return r.serve(http.MethodDelete, path, controller, action, a, defaultLayout, mws...)
 }
 
 // Resource registers a resourceful route for a given resource and tasks it with handling
@@ -392,13 +409,13 @@ func (r *router) DeleteFunc(path string, controller, action string, a Action) Ro
 //
 // Returns:
 // - A pointer to the sub-router created for the resource.
-func (r *router) Resource(rs Resource) Router {
-	nr := r.ResourceAtPath("/", rs)
+func (r *router) Resource(rs Resource, mws ...MiddlewareBuilder) Router {
+	nr := r.ResourceAtPath("/", rs, mws...)
 
 	return nr
 }
 
-func (r *router) ResourceAtPath(rootPath string, rs Resource) Router {
+func (r *router) ResourceAtPath(rootPath string, rs Resource, mws ...MiddlewareBuilder) Router {
 	// This little piece of reflection is OK since it only runs once on boot,
 	// it's not a reflection penalty on every request.
 	rt := reflect.TypeOf(rs)
@@ -412,14 +429,14 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource) Router {
 	basePath := filepath.Join(rootPath, r.normalize(name))
 
 	// Register resource actions with the controller name
-	nr := r.GetFunc(basePath+"/", name, "index", rs.Index).
-		GetFunc(basePath+"/new", name, "new", rs.New).
-		PostFunc(basePath+"/", name, "create", rs.Create).
-		GetFunc(basePath+"/"+pathParamName, name, "show", rs.Show).
-		GetFunc(basePath+"/"+pathParamName+"/edit", name, "edit", rs.Edit).
-		PutFunc(basePath+"/"+pathParamName, name, "update", rs.Update).
-		PostFunc(basePath+"/"+pathParamName, name, "update", rs.Update).
-		DeleteFunc(basePath+"/"+pathParamName, name, "destroy", rs.Destroy)
+	nr := r.GetFunc(basePath+"/", name, "index", rs.Index, mws...).
+		GetFunc(basePath+"/new", name, "new", rs.New, mws...).
+		PostFunc(basePath+"/", name, "create", rs.Create, mws...).
+		GetFunc(basePath+"/"+pathParamName, name, "show", rs.Show, mws...).
+		GetFunc(basePath+"/"+pathParamName+"/edit", name, "edit", rs.Edit, mws...).
+		PutFunc(basePath+"/"+pathParamName, name, "update", rs.Update, mws...).
+		PostFunc(basePath+"/"+pathParamName, name, "update", rs.Update, mws...).
+		DeleteFunc(basePath+"/"+pathParamName, name, "destroy", rs.Destroy, mws...)
 
 	// If this resource has subresources, register these as well.
 	if withSubresouces, ok := rs.(interface {
@@ -437,7 +454,7 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource) Router {
 
 // Handler creates an HTTP handler for this router that can be used to launch
 func (r *router) Handler() (http.Handler, error) {
-	return r.globalMiddlewares.Wrap(r.mux)
+	return r.globalMiddlewares.Wrap(r, r.mux)
 }
 
 // Run starts the HTTP server using the router as the handler on the specified port or default port 8080 if unset.
@@ -543,35 +560,43 @@ func (e errRouter) Redirect(origin string, destination string) Router {
 	return e
 }
 
-func (e errRouter) Get(path string, controller, action string, r Controller) Router {
+func (e errRouter) Serve(a Action) Router {
 	return e
 }
 
-func (e errRouter) GetFunc(path string, controller, action string, r Action) Router {
+func (e errRouter) Controller(c Controller) Router {
 	return e
 }
 
-func (e errRouter) PostFunc(path string, controller, action string, r Action) Router {
+func (e errRouter) Get(path string, controller, action string, r ActionController, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
-func (e errRouter) PutFunc(path string, controller, action string, r Action) Router {
+func (e errRouter) GetFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
-func (e errRouter) PatchFunc(path string, controller, action string, r Action) Router {
+func (e errRouter) PostFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
-func (e errRouter) DeleteFunc(path string, controller, action string, r Action) Router {
+func (e errRouter) PutFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
-func (e errRouter) Resource(r Resource) Router {
+func (e errRouter) PatchFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
-func (e errRouter) ResourceAtPath(path string, r Resource) Router {
+func (e errRouter) DeleteFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router {
+	return e
+}
+
+func (e errRouter) Resource(r Resource, mws ...MiddlewareBuilder) Router {
+	return e
+}
+
+func (e errRouter) ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router {
 	return e
 }
 

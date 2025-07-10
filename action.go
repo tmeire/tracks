@@ -7,6 +7,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -14,14 +15,46 @@ import (
 	"github.com/tmeire/tracks/session"
 )
 
-// Action is a function that processes an HTTP request and returns either:
+type Action struct {
+	// Method is the uppercase HTTP verb for this action
+	Method string
+
+	// Path is the url path where this action is served
+	Path string
+
+	// Controller is the name of the controller this action is part of
+	Controller string
+
+	// Name is the name of the action
+	Name string
+
+	// Func is the action that will be executed when this endpoint is invoked
+	Func ActionFunc
+
+	// Layout is the name of the base layout for this response
+	Layout string
+
+	// Middlewares is a list of middlewares that need to be applied to this action only
+	Middlewares []MiddlewareBuilder
+}
+
+func (a Action) wrap(tpl *template.Template, translator *i18n.Translator) *action {
+	return &action{
+		name:       a.Controller + "#" + a.Name,
+		template:   tpl,
+		impl:       a.Func,
+		translator: translator,
+	}
+}
+
+// ActionFunc is a function that processes an HTTP request and returns either:
 // 1. An opaque data object or a Response object with status and message, and
 // 2. An error object that satisfies the Go error interface
 //
 // If the first return value is an opaque data object (not a Response), the status will be set to OK.
-type Action func(r *http.Request) (any, error)
+type ActionFunc func(r *http.Request) (any, error)
 
-func (a Action) wrap(controllerName, actionName string, tpl *template.Template, translator *i18n.Translator) *action {
+func (a ActionFunc) wrap(controllerName, actionName string, tpl *template.Template, translator *i18n.Translator) *action {
 	return &action{
 		name:       controllerName + "#" + actionName,
 		template:   tpl,
@@ -33,7 +66,7 @@ func (a Action) wrap(controllerName, actionName string, tpl *template.Template, 
 type action struct {
 	name       string
 	template   *template.Template
-	impl       Action
+	impl       ActionFunc
 	translator *i18n.Translator
 }
 
@@ -111,6 +144,7 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 	}
 
 	trace.SpanFromContext(r.Context()).RecordError(err)
+	slog.Warn("failed to render response", "error", err)
 
 	// If template rendering fails, fallback to JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -167,7 +201,7 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	})
 
 	// TODO: Write to a buffer and only write to the response on success
-	return tpl.ExecuteTemplate(w, "application.gohtml", struct {
+	return tpl.ExecuteTemplate(w, "page", struct {
 		Title   string
 		Session session.Session
 		Flash   map[string]string

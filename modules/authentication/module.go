@@ -13,6 +13,10 @@ const (
 	htmlMediaType = "text/html"
 )
 
+func WithAnyRole(r tracks.Router) tracks.Middleware {
+	return authenticate(r.BaseDomain(), r.Secure())
+}
+
 func authenticate(domain string, secure bool) tracks.Middleware {
 	return func(h http.Handler) (http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +73,7 @@ func Register(r tracks.Router) tracks.Router {
 		GetFunc("/users/new", "users", "new", ur.New).
 		// Registration action
 		PostFunc("/users/", "users", "create", ur.Create).
-		RequestMiddleware(authenticate(r.BaseDomain(), r.Secure())).
+		//RequestMiddleware(authenticate(r.BaseDomain(), r.Secure())).
 		// Logout action
-		DeleteFunc("/sessions/", "sessions", "destroy", sr.Delete)
+		DeleteFunc("/sessions/", "sessions", "destroy", sr.Delete, WithAnyRole)
 }

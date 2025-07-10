@@ -38,7 +38,7 @@ func TestRouter_Get(t *testing.T) {
 		os.RemoveAll("views")
 	}()
 
-	// Create a new router and register a simple handler using Action
+	// Create a new router and register a simple handler using ActionFunc
 	h, err := New(t.Context()).
 		GetFunc("/test", "default", "test", func(r *http.Request) (any, error) {
 			// Return an opaque data object, which will automatically get a StatusOK

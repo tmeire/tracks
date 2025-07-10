@@ -111,7 +111,7 @@ func TestResource(t *testing.T) {
 		Handler()
 
 	// Test Index action
-	t.Run("Index Action", func(t *testing.T) {
+	t.Run("Index ActionFunc", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/product/", nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
@@ -143,7 +143,7 @@ func TestResource(t *testing.T) {
 	})
 
 	// Test Show action
-	t.Run("Show Action", func(t *testing.T) {
+	t.Run("Show ActionFunc", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/product/1", nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
