@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -43,7 +45,7 @@ type Router interface {
 	Resource(r Resource, mws ...MiddlewareBuilder) Router
 	ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router
 	Handler() (http.Handler, error)
-	Run() error
+	Run(ctx context.Context) error
 }
 
 type router struct {
@@ -459,18 +461,18 @@ func (r *router) Handler() (http.Handler, error) {
 
 // Run starts the HTTP server using the router as the handler on the specified port or default port 8080 if unset.
 // It retrieves the port from the PORT environment variable and logs the server address before starting it.
-func (r *router) Run() error {
+func (r *router) Run(ctx context.Context) error {
 	if r.parent != nil {
-		return r.parent.Run()
+		return r.parent.Run(ctx)
 	}
 	h, err := r.Handler()
 	if err != nil {
 		return err
 	}
-	return Serve(h, r.port)
+	return serve(ctx, h, r.port)
 }
 
-func Serve(h http.Handler, port int) error {
+func serve(ctx context.Context, h http.Handler, port int) error {
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
 		syscall.SIGHUP,
@@ -489,19 +491,32 @@ func Serve(h http.Handler, port int) error {
 	go func() {
 		defer close(done)
 
-		fmt.Printf("Starting server on port %d\n", port)
+		slog.InfoContext(ctx, "Starting server on port %d\n", port)
 		err = server.ListenAndServe()
 		if err != nil {
-			log.Printf("HTTP server failed: %v", err)
+			slog.ErrorContext(ctx, "HTTP server failed", "error", err)
+		}
+	}()
+
+	go func() {
+		fmt.Println("Starting debug server on localhost:6060")
+		err = http.ListenAndServe("localhost:6060", nil)
+		if err != nil {
+			slog.ErrorContext(ctx, "HTTP debug server failed", "error", err)
 		}
 	}()
 
 	// This will block the function until the server stops or an OS signal is received
 	select {
+	case <-ctx.Done():
+		err = server.Close()
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to close server", "error", err)
+		}
 	case <-sigc:
 		err = server.Close()
 		if err != nil {
-			fmt.Println(err)
+			slog.ErrorContext(ctx, "Failed to close server", "error", err)
 		}
 	case <-done:
 	}
@@ -604,6 +619,6 @@ func (e errRouter) Handler() (http.Handler, error) {
 	return nil, e.err
 }
 
-func (e errRouter) Run() error {
+func (e errRouter) Run(ctx context.Context) error {
 	return e.err
 }
