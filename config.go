@@ -9,6 +9,8 @@ import (
 )
 
 type Config struct {
+	Name       string          `json:"name"`
+	Version    string          `json:"version"`
 	Port       int             `json:"port"`
 	BaseDomain string          `json:"base_domain"`
 	Sessions   config.Config   `json:"sessions"`

@@ -25,7 +25,6 @@ type Router interface {
 	Clone() Router
 	Secure() bool
 	BaseDomain() string
-	Port() int
 	Database() database.Database
 	Module(m Module) Router
 	GlobalMiddleware(m Middleware) Router
@@ -58,19 +57,27 @@ type router struct {
 	requestMiddlewares *middlewares
 	templates          Templates
 	translator         *i18n.Translator
+	shutdownOtel       otel.Shutdown
 }
 
 // New creates a new router with a database-backed session store
 func New(ctx context.Context) Router {
 	conf, err := loadConfig()
 	if err != nil {
-		log.Printf("Failed to load config: %v", err)
+		slog.ErrorContext(ctx, "Failed to load config", "error", err)
 		return errRouter{err: err}
+	}
+
+	// Set up OpenTelemetry
+	shutdownOtel, err := otel.Setup(ctx, conf.Name, conf.Version)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to initialize tracer provider", "error", err)
+		// Continue without tracing
 	}
 
 	db, err := conf.Database.Create(ctx)
 	if err != nil {
-		log.Printf("Failed to create database connection: %v", err)
+		slog.ErrorContext(ctx, "Failed to create database connection", "error", err)
 		return errRouter{err: err}
 	}
 
@@ -80,7 +87,7 @@ func New(ctx context.Context) Router {
 	// Try to load translations from the translations directory
 	err = translator.LoadTranslations("./translations")
 	if err != nil {
-		log.Printf("Failed to load translations: %v", err)
+		slog.ErrorContext(ctx, "Failed to load translations, continuing without", "error", err)
 		// Continue without translations, using keys as fallback
 	}
 
@@ -93,6 +100,7 @@ func New(ctx context.Context) Router {
 		globalMiddlewares:  &middlewares{},
 		requestMiddlewares: &middlewares{},
 		translator:         translator,
+		shutdownOtel:       shutdownOtel,
 		templates: Templates{
 			basedir: "./views",
 			layouts: make(map[string]*template.Template),
@@ -469,10 +477,16 @@ func (r *router) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return serve(ctx, h, r.port)
+	return r.run(ctx, h)
 }
 
-func serve(ctx context.Context, h http.Handler, port int) error {
+func (r *router) run(ctx context.Context, h http.Handler) error {
+	defer func() {
+		if err := r.shutdownOtel(ctx); err != nil {
+			log.Fatalf("failed to shut down open telemetry provider: %v", err)
+		}
+	}()
+
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
 		syscall.SIGHUP,
@@ -481,7 +495,7 @@ func serve(ctx context.Context, h http.Handler, port int) error {
 		syscall.SIGQUIT)
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf(":%d", r.port),
 		Handler: h,
 	}
 
@@ -491,7 +505,7 @@ func serve(ctx context.Context, h http.Handler, port int) error {
 	go func() {
 		defer close(done)
 
-		slog.InfoContext(ctx, "Starting server on port %d\n", port)
+		slog.InfoContext(ctx, "Starting server", "port", r.port)
 		err = server.ListenAndServe()
 		if err != nil {
 			slog.ErrorContext(ctx, "HTTP server failed", "error", err)
@@ -499,7 +513,7 @@ func serve(ctx context.Context, h http.Handler, port int) error {
 	}()
 
 	go func() {
-		fmt.Println("Starting debug server on localhost:6060")
+		slog.InfoContext(ctx, "Starting debug server on localhost:6060")
 		err = http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
 			slog.ErrorContext(ctx, "HTTP debug server failed", "error", err)
