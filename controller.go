@@ -1,9 +1,10 @@
 package tracks
 
 import (
-	"github.com/tmeire/tracks/database"
 	"net/http"
 	"strconv"
+
+	"github.com/tmeire/tracks/database"
 )
 
 type Controller interface {

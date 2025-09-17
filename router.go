@@ -14,7 +14,6 @@ import (
 	"reflect"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/i18n"
@@ -55,7 +54,7 @@ type router struct {
 	mux                *http.ServeMux
 	globalMiddlewares  *middlewares
 	requestMiddlewares *middlewares
-	templates          Templates
+	templates          *Templates
 	translator         *i18n.Translator
 	shutdownOtel       otel.Shutdown
 }
@@ -101,37 +100,7 @@ func New(ctx context.Context) Router {
 		requestMiddlewares: &middlewares{},
 		translator:         translator,
 		shutdownOtel:       shutdownOtel,
-		templates: Templates{
-			basedir: "./views",
-			layouts: make(map[string]*template.Template),
-			fns: template.FuncMap{
-				"t": func(key string) template.HTML {
-					// This is a placeholder implementation to make sure the templates can be loaded on boot.
-					// Every request will overwrite this func with a method that contains the request context to make
-					// sure it's able to access the requested language.
-					return template.HTML(key)
-				},
-				"now": func() string {
-					return time.Now().Format("2006-01-02T15:04")
-				},
-				"today": func() string {
-					return time.Now().Format(time.DateOnly)
-				},
-				"year": func() string {
-					return time.Now().Format("2006")
-				},
-				"add": func(a, b int) int {
-					return a + b
-				},
-				"link": func(s string) template.URL {
-					// TODO: very naive implementation
-					if s[0] != '/' {
-						s = "/" + s
-					}
-					return template.URL("//" + conf.BaseDomain + s)
-				},
-			},
-		},
+		templates:          newTemplates(conf.BaseDomain),
 	}
 
 	// HTTP traces for every request
@@ -447,6 +416,12 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource, mws ...MiddlewareB
 		PutFunc(basePath+"/"+pathParamName, name, "update", rs.Update, mws...).
 		PostFunc(basePath+"/"+pathParamName, name, "update", rs.Update, mws...).
 		DeleteFunc(basePath+"/"+pathParamName, name, "destroy", rs.Destroy, mws...)
+
+	if nr, needsRouter := rs.(interface {
+		Inject(r Router)
+	}); needsRouter {
+		nr.Inject(r)
+	}
 
 	// If this resource has subresources, register these as well.
 	if withSubresouces, ok := rs.(interface {

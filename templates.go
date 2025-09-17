@@ -7,12 +7,50 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type Templates struct {
 	fns     template.FuncMap
 	basedir string
 	layouts map[string]*template.Template
+}
+
+var dummyFn = func(key string) template.HTML {
+	return template.HTML(key)
+}
+
+func newTemplates(baseDomain string) *Templates {
+	return &Templates{
+		basedir: "./views",
+		layouts: make(map[string]*template.Template),
+		fns: template.FuncMap{
+			"now": func() string {
+				return time.Now().Format("2006-01-02T15:04")
+			},
+			"today": func() string {
+				return time.Now().Format(time.DateOnly)
+			},
+			"year": func() string {
+				return time.Now().Format("2006")
+			},
+			"add": func(a, b int) int {
+				return a + b
+			},
+			"link": func(s string) template.URL {
+				// TODO: very naive implementation
+				if s[0] != '/' {
+					s = "/" + s
+				}
+				return template.URL("//" + baseDomain + s)
+			},
+			// These are placeholder implementations to make sure the templates can be loaded on boot.
+			// Every request will overwrite these funcs with methods that contain the request context to make
+			// sure it's able to access the requested language and view vars.
+			"t": dummyFn,
+			"v": dummyFn,
+		},
+	}
 }
 
 // Func adds a new function to templates that are loaded after this call

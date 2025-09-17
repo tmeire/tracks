@@ -1,13 +1,13 @@
 package multitenancy
 
 import (
-	"context"
-	"github.com/tmeire/tracks/database"
 	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	"github.com/tmeire/tracks/database"
 
 	"github.com/tmeire/tracks"
 )
@@ -62,7 +62,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ctx := context.WithValue(req.Context(), tenantContextKey, tenant)
+	req = tracks.AddViewVar(req, "tenant", tenant)
 
 	// Get a database and add it to the context
 	db, err := s.tenantDB.GetTenantDB(req.Context(), tenant.ID)
@@ -71,19 +71,11 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ctx = database.WithDB(ctx, db)
+	ctx := database.WithDB(req.Context(), db)
 
 	// Call the next handler with the updated context
 	s.subdomains.ServeHTTP(w, req.WithContext(ctx))
 }
-
-// contextKey is a type for context keys specific to the multitenancy package
-type contextKey string
-
-const (
-	// tenantContextKey is the context key for the current tenant
-	tenantContextKey contextKey = "tenant"
-)
 
 // extractSubdomain extracts the subdomain from the host
 func extractSubdomain(host string) string {

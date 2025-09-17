@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/tmeire/tracks/i18n"
 	"github.com/tmeire/tracks/session"
@@ -187,6 +188,8 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 
 	lang := i18n.LanguageFromContext(ctx)
 
+	vars := ViewVars(ctx)
+
 	tpl, err := a.template.Clone()
 	if err != nil {
 		return err
@@ -198,6 +201,9 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 			}
 			return a.translator.TranslateWithParams(lang, key, args...)
 		},
+		"v": func(key string) any {
+			return vars[key]
+		},
 	})
 
 	// TODO: Write to a buffer and only write to the response on success
@@ -206,11 +212,13 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 		Session session.Session
 		Flash   map[string]string
 		Content any
+		Vars    map[string]any
 	}{
 		Title:   resp.Title,
 		Session: session.FromRequest(r),
 		Flash:   session.FlashMessages(r),
 		Content: resp.Data,
+		Vars:    vars,
 	})
 }
 

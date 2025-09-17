@@ -3,10 +3,11 @@ package authentication
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tmeire/tracks"
-	"github.com/tmeire/tracks/session"
 	"net/http"
 	"strings"
+
+	"github.com/tmeire/tracks"
+	"github.com/tmeire/tracks/session"
 )
 
 const (
