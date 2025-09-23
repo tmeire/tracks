@@ -162,6 +162,7 @@ func (q *QueryBuilder[S, T]) Execute(ctx context.Context) ([]T, error) {
 	for rows.Next() {
 		model, err := zero.Scan(ctx, q.repo.schema, rows)
 		if err != nil {
+			span.RecordError(err)
 			return nil, err
 		}
 		results = append(results, model)
@@ -186,6 +187,7 @@ func (q *QueryBuilder[S, T]) First(ctx context.Context) (T, error) {
 	var zero T
 	res, err := zero.Scan(ctx, q.repo.schema, row)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		span.RecordError(err)
 		return zero, err
 	}
 	return res, nil

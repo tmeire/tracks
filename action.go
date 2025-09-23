@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -37,15 +38,6 @@ type Action struct {
 
 	// Middlewares is a list of middlewares that need to be applied to this action only
 	Middlewares []MiddlewareBuilder
-}
-
-func (a Action) wrap(tpl *template.Template, translator *i18n.Translator) *action {
-	return &action{
-		name:       a.Controller + "#" + a.Name,
-		template:   tpl,
-		impl:       a.Func,
-		translator: translator,
-	}
 }
 
 // ActionFunc is a function that processes an HTTP request and returns either:
@@ -160,6 +152,9 @@ type renderer func(r *http.Request, w http.ResponseWriter, resp *Response) error
 
 // renderHTML renders an HTML template with the given data
 func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Response) error {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
+	defer span.End()
+
 	if resp.Location != "" {
 		// TODO: Not really a fan of hardcoding support for HTMX in here. This feels like we need some kind of hook
 		// system here so we can also support libraries like Turbo JS.
@@ -174,8 +169,14 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 		}
 	}
 
-	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "action.renderhtml")
-	defer span.End()
+	if resp.StatusCode != http.StatusOK {
+		err := a.template.ExecuteTemplate(w, strconv.Itoa(resp.StatusCode), nil)
+		if err != nil {
+			span.RecordError(err)
+			return err
+		}
+		return nil
+	}
 
 	if a.template == nil {
 		err := fmt.Errorf("template not found")

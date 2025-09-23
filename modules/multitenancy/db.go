@@ -3,7 +3,6 @@ package multitenancy
 import (
 	"context"
 	"fmt"
-	"log"
 	"path/filepath"
 	"sync"
 
@@ -95,7 +94,7 @@ func (t *TenantRepository) createTenantDB(ctx context.Context, tenantID int) (da
 
 	err = database.MigrateUp(ctx, tenantDB, database.TenantDatabase)
 	if err != nil {
-		log.Fatalf("failed to apply migrations: %v", err)
+		return nil, fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
 	// Store the connection for future use

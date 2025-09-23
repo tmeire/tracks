@@ -78,6 +78,30 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 		return nil, err
 	}
 
+	// Find and load all error pages
+	errorpages, err := filepath.Glob(filepath.Join(t.basedir, "errorpages", "*.gohtml"))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, errorpage := range errorpages {
+		filename := filepath.Base(errorpage)
+		templateName := strings.TrimSuffix(filename, ".gohtml")
+
+		parsed, err := layout.
+			New(filename).
+			Funcs(t.fns).
+			ParseFiles(errorpage)
+		if err != nil {
+			return nil, err
+		}
+
+		layout, err = layout.AddParseTree(templateName, parsed.Tree)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Find and load all partial templates into the layout
 	partials, err := filepath.Glob(filepath.Join(t.basedir, "*", "_*.gohtml"))
 	if err != nil {
@@ -115,16 +139,18 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 // template has access to all functions that were registered before the call to Load.
 //
 // Not thread-safe!
-func (t *Templates) Load(layout, controller, action string) (*template.Template, error) {
-	if _, ok := t.layouts[layout]; !ok {
-		_layout, err := t.loadLayout(layout)
+func (t *Templates) Load(layoutName, controller, action string) (*template.Template, error) {
+	if _, ok := t.layouts[layoutName]; !ok {
+		_layout, err := t.loadLayout(layoutName)
 		if err != nil {
-			slog.Warn("failed to load layout", "name", layout, "error", err)
+			slog.Warn("failed to load layoutName", "name", layoutName, "error", err)
 			// Let's ignore it, could be an API-only app
 			return nil, nil
 		}
-		t.layouts[layout] = _layout
+		t.layouts[layoutName] = _layout
 	}
+
+	controller = strings.Replace(controller, "_", "/", -1)
 
 	// Construct the template path
 	filename := action + ".gohtml"
@@ -132,10 +158,11 @@ func (t *Templates) Load(layout, controller, action string) (*template.Template,
 
 	// Check if the template exists
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		slog.Warn("failed to load template", "name", templatePath)
 		return nil, nil
 	}
 
-	page, err := t.layouts[layout].Clone()
+	page, err := t.layouts[layoutName].Clone()
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +177,7 @@ func (t *Templates) Load(layout, controller, action string) (*template.Template,
 	}
 
 	// Add the same template again, but now with the name "yield" to make sure it can be called from the application
-	// Note: making the page template available to be rendered as "yield" in the layout template can be achieved in
+	// Note: making the page template available to be rendered as "yield" in the layoutName template can be achieved in
 	// a couple of ways.
 	// * At the moment, we're 'renaming' the page template which may come at a bit of a memory cost.
 	// * We could also add a dynamic template that is just `{{ template 'action.gohtml' . }}`, which may come with a

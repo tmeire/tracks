@@ -6,11 +6,14 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Repository provides CRUD operations for a specific model type
 type Repository[S Schema, T Model[S, T]] struct {
 	schema S
+	zero   T
 }
 
 // NewRepository creates a new repository for the given model type
@@ -69,10 +72,8 @@ func (r *Repository[S, T]) Count(ctx context.Context) (int, error) {
 
 // Create inserts a new record into the database
 func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
-	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.create")
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.create", trace.WithAttributes(attribute.String("table", r.zero.TableName())))
 	defer span.End()
-
-	var zero T
 
 	// GetFunc all fields and values
 	fields := model.Fields()
@@ -96,7 +97,7 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 
 	res, err := FromContext(ctx).ExecContext(ctx, query, values...)
 	if err != nil {
-		return zero, err
+		return r.zero, err
 	}
 
 	// For auto-increment IDs, retrieve the ID from the database
@@ -107,8 +108,9 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 
 	id, err := res.LastInsertId()
 	if err != nil {
-		return zero, err
+		return r.zero, err
 	}
+	fmt.Println(id)
 	return r.FindByID(ctx, id)
 }
 
