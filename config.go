@@ -2,10 +2,11 @@ package tracks
 
 import (
 	"encoding/json"
-	"github.com/tmeire/tracks/database"
-	"github.com/tmeire/tracks/session/config"
 	"os"
 	"path/filepath"
+
+	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/session/config"
 )
 
 type Config struct {
@@ -17,12 +18,25 @@ type Config struct {
 	Database   database.Config `json:"database"`
 }
 
-func loadConfig() (config Config, err error) {
+func configFileName() (string, error) {
+	if f := os.Getenv("TRACKS_CONFIG_FILE"); f != "" {
+		return f, nil
+	}
+
 	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cwd, "config", "config.json"), nil
+}
+
+func loadConfig() (config Config, err error) {
+	fn, err := configFileName()
 	if err != nil {
 		return
 	}
-	conf, err := os.Open(filepath.Join(cwd, "config", "config.json"))
+
+	conf, err := os.Open(fn)
 	if err != nil {
 		return
 	}

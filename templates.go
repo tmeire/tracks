@@ -25,6 +25,7 @@ func newTemplates(baseDomain string) *Templates {
 		basedir: "./views",
 		layouts: make(map[string]*template.Template),
 		fns: template.FuncMap{
+			// Time helpers
 			"now": func() string {
 				return time.Now().Format("2006-01-02T15:04")
 			},
@@ -34,8 +35,19 @@ func newTemplates(baseDomain string) *Templates {
 			"year": func() string {
 				return time.Now().Format("2006")
 			},
+			// Math helpers
 			"add": func(a, b int) int {
 				return a + b
+			},
+			"mul": func(a int, b int64) int64 {
+				return int64(a) * b
+			},
+			"seq": func(start, finish int) []int {
+				var n []int
+				for i := start; i <= finish; i++ {
+					n = append(n, i)
+				}
+				return n
 			},
 			"link": func(s string) template.URL {
 				// TODO: very naive implementation
@@ -43,6 +55,13 @@ func newTemplates(baseDomain string) *Templates {
 					s = "/" + s
 				}
 				return template.URL("//" + baseDomain + s)
+			},
+			// Formatting helpers
+			"cents": func(c int64) string {
+				return fmt.Sprintf("%.2f", float64(c)/100.0)
+			},
+			"bps": func(b int) string {
+				return fmt.Sprintf("%.2f", float64(b)/100.0)
 			},
 			// These are placeholder implementations to make sure the templates can be loaded on boot.
 			// Every request will overwrite these funcs with methods that contain the request context to make

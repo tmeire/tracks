@@ -67,6 +67,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Get a database and add it to the context
 	db, err := s.tenantDB.GetTenantDB(req.Context(), tenant.ID)
 	if err != nil {
+		panic(err)
 		http.Error(w, "Failed to connect to database", http.StatusInternalServerError)
 		return
 	}

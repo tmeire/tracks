@@ -110,7 +110,6 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 	if err != nil {
 		return r.zero, err
 	}
-	fmt.Println(id)
 	return r.FindByID(ctx, id)
 }
 

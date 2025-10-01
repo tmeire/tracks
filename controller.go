@@ -8,7 +8,7 @@ import (
 )
 
 type Controller interface {
-	Register(router Router) Router
+	Register(router Router, path string) Router
 }
 
 type ActionController interface {

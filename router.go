@@ -34,6 +34,7 @@ type Router interface {
 	Redirect(origin string, destination string) Router
 	Serve(a Action) Router
 	Controller(c Controller) Router
+	ControllerAtPath(path string, c Controller) Router
 	Get(path string, controller, action string, r ActionController, mws ...MiddlewareBuilder) Router
 	GetFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
 	PostFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
@@ -66,7 +67,10 @@ func New(ctx context.Context) Router {
 		slog.ErrorContext(ctx, "Failed to load config", "error", err)
 		return errRouter{err: err}
 	}
+	return NewFromConfig(ctx, conf)
+}
 
+func NewFromConfig(ctx context.Context, conf Config) Router {
 	// Set up OpenTelemetry
 	shutdownOtel, err := otel.Setup(ctx, conf.Name, conf.Version)
 	if err != nil {
@@ -308,7 +312,11 @@ func (r *router) Serve(a Action) Router {
 }
 
 func (r *router) Controller(c Controller) Router {
-	return c.Register(r)
+	return c.Register(r, "/")
+}
+
+func (r *router) ControllerAtPath(path string, c Controller) Router {
+	return c.Register(r, path)
 }
 
 // Get registers a handler for HTTP GET requests to the specified path.
@@ -431,6 +439,17 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource, mws ...MiddlewareB
 
 		for _, sr := range withSubresouces.Subresources() {
 			nr = nr.ResourceAtPath(basePath, sr)
+		}
+	}
+
+	// If this resource has subcontrollers, register these as well.
+	if withSubcontrollers, ok := rs.(interface {
+		Subcontrollers() []Controller
+	}); ok {
+		basePath = fmt.Sprintf("%s/{%s_id}/", basePath, name)
+
+		for _, sr := range withSubcontrollers.Subcontrollers() {
+			nr = nr.ControllerAtPath(basePath, sr)
 		}
 	}
 
@@ -569,6 +588,10 @@ func (e errRouter) Serve(a Action) Router {
 }
 
 func (e errRouter) Controller(c Controller) Router {
+	return e
+}
+
+func (e errRouter) ControllerAtPath(path string, c Controller) Router {
 	return e
 }
 
