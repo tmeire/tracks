@@ -198,9 +198,13 @@ func (q *QueryBuilder[S, T]) Count(ctx context.Context) (int, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "querybuilder.count")
 	defer span.End()
 
-	q.fields = []string{"COUNT(*)"}
+	// Make a shallow clone to avoid overriding the fields for later queries
+	q2 := new(QueryBuilder[S, T])
+	*q2 = *q
 
-	query, args := q.Build()
+	q2.fields = []string{"COUNT(*)"}
+
+	query, args := q2.Build()
 
 	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
