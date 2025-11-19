@@ -26,6 +26,9 @@ func newTemplates(baseDomain string) *Templates {
 		layouts: make(map[string]*template.Template),
 		fns: template.FuncMap{
 			// Time helpers
+			"date": func(format string, t time.Time) string {
+				return t.Format(format)
+			},
 			"now": func() string {
 				return time.Now().Format("2006-01-02T15:04")
 			},
@@ -169,7 +172,7 @@ func (t *Templates) Load(layoutName, controller, action string) (*template.Templ
 		t.layouts[layoutName] = _layout
 	}
 
-	controller = strings.Replace(controller, "_", "/", -1)
+	//controller = strings.Replace(controller, "_", "/", -1)
 
 	// Construct the template path
 	filename := action + ".gohtml"

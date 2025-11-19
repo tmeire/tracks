@@ -18,6 +18,8 @@ import (
 	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/i18n"
 	"github.com/tmeire/tracks/otel"
+
+	"github.com/iancoleman/strcase"
 )
 
 type Router interface {
@@ -409,7 +411,7 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource, mws ...MiddlewareB
 	if rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}
-	name := strings.TrimSuffix(strings.ToLower(rt.Name()), "resource")
+	name := strings.TrimSuffix(strcase.ToSnake(rt.Name()), "resource")
 
 	pathParamName := fmt.Sprintf(`{%s_id}`, name)
 
