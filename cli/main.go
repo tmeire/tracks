@@ -19,10 +19,8 @@ This CLI provides various utilities and commands for managing the Tracks-based s
 	rootCmd.AddCommand(cmd.VersionCmd())
 	rootCmd.AddCommand(cmd.AssetsCmd())
 	rootCmd.AddCommand(cmd.GenerateCmd())
- rootCmd.AddCommand(cmd.DbCmd())
- rootCmd.AddCommand(cmd.TenantCmd())
- rootCmd.AddCommand(cmd.InitCmd())
- rootCmd.AddCommand(cmd.FeatureFlagsCmd())
+	rootCmd.AddCommand(cmd.DbCmd())
+	rootCmd.AddCommand(cmd.InitCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

@@ -1,8 +1,8 @@
-package cmd
+package cli
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/tmeire/tracks/cli/cmd/tenant"
+	"github.com/tmeire/tracks/modules/multitenancy/cli/tenant"
 )
 
 // TenantCmd returns a cobra.Command for tenant management
