@@ -27,14 +27,14 @@ This command:
 			moduleName := args[0]
 			// Extract project name from the module name (last part of the path)
 			projectName := filepath.Base(moduleName)
-			
+
 			fmt.Printf("Initializing new Tracks application: %s (module: %s)\n", projectName, moduleName)
-			
+
 			if err := project.Init(moduleName, projectName); err != nil {
 				fmt.Printf("Error initializing project: %v\n", err)
 				os.Exit(1)
 			}
-			
+
 			fmt.Printf("Successfully initialized %s\n", projectName)
 		},
 	}

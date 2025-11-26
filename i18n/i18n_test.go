@@ -194,11 +194,11 @@ func TestTranslateWithParams(t *testing.T) {
 	translator.flatCache = map[string]map[string]string{
 		"en": {
 			"welcome": "Welcome, %s!",
-			"count": "You have %d items",
+			"count":   "You have %d items",
 		},
 		"fr": {
 			"welcome": "Bienvenue, %s !",
-			"count": "Vous avez %d articles",
+			"count":   "Vous avez %d articles",
 		},
 	}
 
@@ -234,8 +234,8 @@ func TestGetNestedValue(t *testing.T) {
 		"pricing": map[string]interface{}{
 			"plans": map[string]interface{}{
 				"freelance": "Freelance",
-				"basic": "Basic",
-				"pro": "Professional",
+				"basic":     "Basic",
+				"pro":       "Professional",
 			},
 		},
 		"user": map[string]interface{}{
