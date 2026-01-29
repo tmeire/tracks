@@ -58,6 +58,8 @@ func WithFlags(r tracks.Router) tracks.Middleware {
 				ctx = withFlags(ctx, cached)
 				// Add OTel attribute with enabled keys
 				addSpanAttrEnabled(span, cached)
+				// store in view vars
+				req = tracks.AddViewVar(req, "flags", cached)
 				next.ServeHTTP(w, req.WithContext(ctx))
 				return
 			}
@@ -76,6 +78,7 @@ func WithFlags(r tracks.Router) tracks.Middleware {
 			addSpanAttrEnabled(span, effective)
 
 			// store in view vars
+			fmt.Println("effective flags:", effective)
 			req = tracks.AddViewVar(req, "flags", effective)
 
 			next.ServeHTTP(w, req.WithContext(ctx))
