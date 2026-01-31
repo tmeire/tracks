@@ -21,6 +21,50 @@ func NewRepository[S Schema, T Model[S, T]](schema S) *Repository[S, T] {
 	return &Repository[S, T]{schema: schema}
 }
 
+// AtomicOp represents an atomic update operation on a specific field
+type AtomicOp struct {
+	Field string
+	Delta any // int, float64, etc.
+}
+
+// AtomicUpdate performs atomic updates on specific fields using increments/decrements
+func (r *Repository[S, T]) AtomicUpdate(ctx context.Context, id any, ops ...AtomicOp) error {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.atomicupdate")
+	defer span.End()
+
+	if len(ops) == 0 {
+		return nil
+	}
+
+	// Validate fields against the model definition to prevent SQL injection
+	// We use the zero value of T to access the Fields() method
+	allowedFields := make(map[string]bool)
+	for _, f := range r.zero.Fields() {
+		allowedFields[f] = true
+	}
+
+	// Build the SET clause
+	var setClause []string
+	var args []any
+
+	for _, op := range ops {
+		if !allowedFields[op.Field] {
+			return fmt.Errorf("invalid field: %s", op.Field)
+		}
+		setClause = append(setClause, fmt.Sprintf("%s = %s + ?", op.Field, op.Field))
+		args = append(args, op.Delta)
+	}
+
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = ?",
+		r.zero.TableName(),
+		strings.Join(setClause, ", "))
+
+	args = append(args, id)
+
+	_, err := FromContext(ctx).ExecContext(ctx, query, args...)
+	return err
+}
+
 // Select creates a new QueryBuilder with the specified fields
 func (r *Repository[S, T]) Select(fields ...string) WhereableQuery[S, T] {
 	var zero T
