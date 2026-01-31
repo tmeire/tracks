@@ -35,7 +35,7 @@ func New(dbPath string) (*sql.DB, error) {
 	}
 
 	// Register DB stats to meter
-	err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(
+	_, err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(
 		semconv.DBSystemSqlite,
 	))
 	if err != nil {
