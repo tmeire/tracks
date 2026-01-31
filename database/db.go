@@ -56,3 +56,45 @@ type Model[S Schema, T any] interface {
 	// GetID returns the ID of the model
 	GetID() any
 }
+
+// BeforeCreateHook is called before a record is created
+type BeforeCreateHook interface {
+	BeforeCreate(ctx context.Context) error
+}
+
+// AfterCreateHook is called after a record is created
+type AfterCreateHook interface {
+	AfterCreate(ctx context.Context) error
+}
+
+// BeforeUpdateHook is called before a record is updated
+type BeforeUpdateHook interface {
+	BeforeUpdate(ctx context.Context) error
+}
+
+// AfterUpdateHook is called after a record is updated
+type AfterUpdateHook interface {
+	AfterUpdate(ctx context.Context) error
+}
+
+// BeforeDeleteHook is called before a record is deleted
+type BeforeDeleteHook interface {
+	BeforeDelete(ctx context.Context) error
+}
+
+// AfterDeleteHook is called after a record is deleted
+type AfterDeleteHook interface {
+	AfterDelete(ctx context.Context) error
+}
+
+type skipHooksKey struct{}
+
+// SkipHooks returns a new context that tells the repository to skip lifecycle hooks
+func SkipHooks(ctx context.Context) context.Context {
+	return context.WithValue(ctx, skipHooksKey{}, true)
+}
+
+func shouldSkipHooks(ctx context.Context) bool {
+	skip, _ := ctx.Value(skipHooksKey{}).(bool)
+	return skip
+}

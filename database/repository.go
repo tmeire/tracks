@@ -119,6 +119,14 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.create", trace.WithAttributes(attribute.String("table", r.zero.TableName())))
 	defer span.End()
 
+	if !shouldSkipHooks(ctx) {
+		if h, ok := any(model).(BeforeCreateHook); ok {
+			if err := h.BeforeCreate(ctx); err != nil {
+				return r.zero, err
+			}
+		}
+	}
+
 	// GetFunc all fields and values
 	fields := model.Fields()
 	values := model.Values()
@@ -144,23 +152,46 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 		return r.zero, err
 	}
 
+	var created T
 	// For auto-increment IDs, retrieve the ID from the database
 	if !model.HasAutoIncrementID() {
 		// For app-provided IDs, use the ID from the model
-		return r.FindByID(ctx, model.GetID())
+		created, err = r.FindByID(ctx, model.GetID())
+	} else {
+		id, err2 := res.LastInsertId()
+		if err2 != nil {
+			return r.zero, err2
+		}
+		created, err = r.FindByID(ctx, id)
 	}
 
-	id, err := res.LastInsertId()
 	if err != nil {
 		return r.zero, err
 	}
-	return r.FindByID(ctx, id)
+
+	if !shouldSkipHooks(ctx) {
+		if h, ok := any(created).(AfterCreateHook); ok {
+			if err := h.AfterCreate(ctx); err != nil {
+				return r.zero, err
+			}
+		}
+	}
+
+	return created, nil
 }
 
 // Update updates an existing record in the database
 func (r *Repository[S, T]) Update(ctx context.Context, model T) error {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.update")
 	defer span.End()
+
+	if !shouldSkipHooks(ctx) {
+		if h, ok := any(model).(BeforeUpdateHook); ok {
+			if err := h.BeforeUpdate(ctx); err != nil {
+				return err
+			}
+		}
+	}
 
 	fields := model.Fields()
 	values := model.Values()
@@ -182,7 +213,19 @@ func (r *Repository[S, T]) Update(ctx context.Context, model T) error {
 	args = append(args, model.GetID())
 
 	_, err := FromContext(ctx).ExecContext(ctx, query, args...)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if !shouldSkipHooks(ctx) {
+		if h, ok := any(model).(AfterUpdateHook); ok {
+			if err := h.AfterUpdate(ctx); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Delete removes a record from the database
@@ -190,8 +233,28 @@ func (r *Repository[S, T]) Delete(ctx context.Context, model T) error {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.delete")
 	defer span.End()
 
+	if !shouldSkipHooks(ctx) {
+		if h, ok := any(model).(BeforeDeleteHook); ok {
+			if err := h.BeforeDelete(ctx); err != nil {
+				return err
+			}
+		}
+	}
+
 	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", model.TableName())
 
 	_, err := FromContext(ctx).ExecContext(ctx, query, model.GetID())
-	return err
+	if err != nil {
+		return err
+	}
+
+	if !shouldSkipHooks(ctx) {
+		if h, ok := any(model).(AfterDeleteHook); ok {
+			if err := h.AfterDelete(ctx); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
