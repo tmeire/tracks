@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/XSAM/otelsql v0.41.0
+	github.com/google/uuid v1.6.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/pressly/goose/v3 v3.26.0
@@ -32,7 +33,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.6 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
