@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/tmeire/tracks/storage"
+	"github.com/tmeire/tracks/modules/storage"
 )
 
 // Driver implements storage.Driver for local disk storage
