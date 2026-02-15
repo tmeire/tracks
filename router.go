@@ -121,7 +121,16 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 	r.GlobalMiddleware(database.Middleware(db))
 
 	// Set up i18n middleware for language detection
-	r.GlobalMiddleware(i18n.Middleware("en"))
+	r.GlobalMiddleware(i18n.Middleware(translator, "en"))
+
+	// Expose the detected locale in the view context
+	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			lang := i18n.LanguageFromContext(r.Context())
+			r = AddViewVar(r, "locale", lang)
+			next.ServeHTTP(w, r)
+		}), nil
+	})
 
 	// Set up sessions for all the domains
 	sessionMW, err := conf.Sessions.Middleware(ctx, conf.BaseDomain)
@@ -170,7 +179,13 @@ func (r *router) Database() database.Database {
 
 func (r *router) normalize(path string) string {
 	path = strings.ToLower(path)
-	path = strings.TrimSuffix(path, "resource")
+	if strings.HasSuffix(path, "resource") {
+		path = strings.TrimSuffix(path, "resource")
+	}
+	if strings.HasSuffix(path, "controller") {
+		path = strings.TrimSuffix(path, "controller")
+	}
+	path = strings.TrimSuffix(path, "_")
 
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -411,7 +426,10 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource, mws ...MiddlewareB
 	if rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}
-	name := strings.TrimSuffix(strcase.ToSnake(rt.Name()), "resource")
+	name := strcase.ToSnake(rt.Name())
+	if strings.HasSuffix(name, "_resource") {
+		name = strings.TrimSuffix(name, "_resource")
+	}
 
 	pathParamName := fmt.Sprintf(`{%s_id}`, name)
 

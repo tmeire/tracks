@@ -99,6 +99,11 @@ func (a *action) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // WriteResponse writes the response to the http.ResponseWriter based on the
 // content type requested by the client
 func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
+	// Set any cookies provided in the response
+	for _, cookie := range resp.Cookies {
+		http.SetCookie(w, cookie)
+	}
+
 	// Set the default status code if not provided
 	if resp.StatusCode == 0 {
 		resp.StatusCode = http.StatusOK

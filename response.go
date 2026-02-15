@@ -1,5 +1,7 @@
 package tracks
 
+import "net/http"
+
 // Response represents a standardized API response structure
 type Response struct {
 	// StatusCode is the HTTP status code to be returned
@@ -10,4 +12,6 @@ type Response struct {
 	Title string
 	// Data is the payload to be returned to the client
 	Data interface{}
+	// Cookies is a list of cookies to be set on the response
+	Cookies []*http.Cookie
 }
