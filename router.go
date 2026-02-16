@@ -45,6 +45,7 @@ type Router interface {
 	DeleteFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
 	Resource(r Resource, mws ...MiddlewareBuilder) Router
 	ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router
+	Templates() *Templates
 	Handler() (http.Handler, error)
 	Run(ctx context.Context) error
 }
@@ -477,6 +478,10 @@ func (r *router) ResourceAtPath(rootPath string, rs Resource, mws ...MiddlewareB
 }
 
 // Handler creates an HTTP handler for this router that can be used to launch
+func (r *router) Templates() *Templates {
+	return r.templates
+}
+
 func (r *router) Handler() (http.Handler, error) {
 	return r.globalMiddlewares.Wrap(r, r.mux)
 }
@@ -645,6 +650,10 @@ func (e errRouter) Resource(r Resource, mws ...MiddlewareBuilder) Router {
 
 func (e errRouter) ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router {
 	return e
+}
+
+func (e errRouter) Templates() *Templates {
+	return nil
 }
 
 func (e errRouter) Handler() (http.Handler, error) {
