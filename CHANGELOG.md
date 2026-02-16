@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.25] - 2026-02-16
+### Added
+- Post-user-creation hooks in the authentication module.
+
 ## [v0.0.21] - 2026-02-06
 ### Added
 - New `storage` module for unified file handling.

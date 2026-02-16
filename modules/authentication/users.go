@@ -176,6 +176,9 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		return nil, err
 	}
 
+	// Trigger post-user-creation hooks
+	executePostUserCreationHooks(r.Context(), user)
+
 	// Set a flash message
 	session.Flash(r, "notice", "Account created successfully")
 
