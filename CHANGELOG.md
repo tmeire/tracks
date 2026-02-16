@@ -4,6 +4,22 @@
 ### Added
 - Post-user-creation hooks in the authentication module.
 
+## [v0.0.24] - 2026-02-16
+### Added
+- New `mail` module with SMTP and Log drivers.
+
+## [v0.0.23] - 2026-02-15
+### Added
+- Internationalization (i18n) support.
+### Fixed
+- Resource naming in controllers.
+
+## [v0.0.22] - 2026-02-08
+### Changed
+- Updated OpenTelemetry instrumentation.
+### Fixed
+- Import path in the disk storage driver.
+
 ## [v0.0.21] - 2026-02-06
 ### Added
 - New `storage` module for unified file handling.
