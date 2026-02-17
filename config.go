@@ -10,12 +10,13 @@ import (
 )
 
 type Config struct {
-	Name       string          `json:"name"`
-	Version    string          `json:"version"`
-	Port       int             `json:"port"`
-	BaseDomain string          `json:"base_domain"`
-	Sessions   config.Config   `json:"sessions"`
-	Database   database.Config `json:"database"`
+	Name       string                     `json:"name"`
+	Version    string                     `json:"version"`
+	Port       int                        `json:"port"`
+	BaseDomain string                     `json:"base_domain"`
+	Sessions   config.Config              `json:"sessions"`
+	Database   database.Config            `json:"database"`
+	Modules    map[string]json.RawMessage `json:"modules"`
 }
 
 func configFileName() (string, error) {

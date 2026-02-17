@@ -2,9 +2,16 @@ package mail
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+func init() {
+	RegisterDriver("log", func(conf json.RawMessage) (Driver, error) {
+		return NewLogDriver(), nil
+	})
+}
 
 type LogDriver struct{}
 

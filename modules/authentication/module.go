@@ -61,7 +61,7 @@ func authenticate(domain string, secure bool) tracks.Middleware {
 func Register(r tracks.Router) tracks.Router {
 	sr := SessionsResource{}
 	ur := UsersResource{
-		schema: newSchema(),
+		schema: NewSchema(),
 	}
 
 	return r.

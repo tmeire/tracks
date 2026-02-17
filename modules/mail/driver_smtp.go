@@ -2,10 +2,21 @@ package mail
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/smtp"
 	"strings"
 )
+
+func init() {
+	RegisterDriver("smtp", func(conf json.RawMessage) (Driver, error) {
+		var c Config
+		if err := json.Unmarshal(conf, &c); err != nil {
+			return nil, err
+		}
+		return NewSMTPDriver(c.SMTP), nil
+	})
+}
 
 type SMTPDriver struct {
 	config SMTPConfig

@@ -46,12 +46,14 @@ type Router interface {
 	Resource(r Resource, mws ...MiddlewareBuilder) Router
 	ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router
 	Templates() *Templates
+	Config() Config
 	Handler() (http.Handler, error)
 	Run(ctx context.Context) error
 }
 
 type router struct {
 	parent             *router
+	config             Config
 	port               int
 	baseDomain         string
 	database           database.Database
@@ -99,6 +101,7 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 
 	r := &router{
 		parent:             nil,
+		config:             conf,
 		port:               conf.Port,
 		baseDomain:         conf.BaseDomain,
 		database:           db,
@@ -147,6 +150,7 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 func (r *router) Clone() Router {
 	return &router{
 		parent:            r,
+		config:            r.config,
 		port:              r.port,
 		baseDomain:        r.baseDomain,
 		database:          r.database,
@@ -482,6 +486,10 @@ func (r *router) Templates() *Templates {
 	return r.templates
 }
 
+func (r *router) Config() Config {
+	return r.config
+}
+
 func (r *router) Handler() (http.Handler, error) {
 	return r.globalMiddlewares.Wrap(r, r.mux)
 }
@@ -654,6 +662,10 @@ func (e errRouter) ResourceAtPath(path string, r Resource, mws ...MiddlewareBuil
 
 func (e errRouter) Templates() *Templates {
 	return nil
+}
+
+func (e errRouter) Config() Config {
+	return Config{}
 }
 
 func (e errRouter) Handler() (http.Handler, error) {

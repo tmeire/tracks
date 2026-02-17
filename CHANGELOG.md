@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.0.26] - 2026-02-17
+### Added
+- Plug-and-play mail driver registry.
+- Module-specific configuration support in the `tracks` core.
+- `Config()` method on the `Router` interface.
+- Automatic driver registration for `log` and `smtp` mail drivers.
+
 ## [v0.0.25] - 2026-02-16
 ### Added
 - Post-user-creation hooks in the authentication module.

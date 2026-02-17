@@ -1,22 +1,11 @@
 package authentication
 
 import (
-	"github.com/tmeire/tracks/database"
 	"net/http"
 
 	"github.com/tmeire/tracks"
 	"github.com/tmeire/tracks/session"
 )
-
-type schema struct {
-	users *database.Repository[*schema, *User]
-}
-
-func newSchema() *schema {
-	s := &schema{}
-	s.users = database.NewRepository[*schema, *User](s)
-	return s
-}
 
 type SessionsResource struct{}
 
@@ -58,7 +47,7 @@ func (s *SessionsResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	schema := newSchema()
+	schema := NewSchema()
 
 	// Find the user by email
 	users, err := schema.users.FindBy(r.Context(), map[string]any{"email": email})

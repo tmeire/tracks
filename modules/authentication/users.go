@@ -38,7 +38,7 @@ func (s *User) Values() []any {
 }
 
 // Scan scans the values from a row into this model
-func (*User) Scan(_ context.Context, _ *schema, row database.Scanner) (*User, error) {
+func (*User) Scan(_ context.Context, _ *Schema, row database.Scanner) (*User, error) {
 	var n User
 
 	err := row.Scan(&n.ID, &n.Email, &n.Name, &n.password, &n.CreatedAt, &n.UpdatedAt)
@@ -80,7 +80,7 @@ func (s *User) ValidatePassword(password string) bool {
 }
 
 type UsersResource struct {
-	schema *schema
+	schema *Schema
 }
 
 func (u *UsersResource) Index(r *http.Request) (any, error) {
@@ -141,39 +141,13 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	// Check if a user with this email already exists
-	existingUsers, err := u.schema.users.FindBy(r.Context(), map[string]any{"email": email})
+	user, err := u.schema.CreateNewUser(r.Context(), name, email, password)
 	if err != nil {
-		return nil, err
-	}
-
-	if len(existingUsers) > 0 {
-		session.Flash(r, "alert", "A user with this email already exists")
+		session.Flash(r, "alert", err.Error())
 		return &tracks.Response{
 			StatusCode: http.StatusUnprocessableEntity,
 			Location:   "/users/new",
 		}, nil
-	}
-
-	// Create a new user
-	now := time.Now()
-	user := &User{
-		ID:        email,
-		Email:     email,
-		Name:      name,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-
-	// Set the password
-	if err := user.SetPassword(password); err != nil {
-		return nil, err
-	}
-
-	// Save the user to the database
-	user, err = u.schema.users.Create(r.Context(), user)
-	if err != nil {
-		return nil, err
 	}
 
 	// Trigger post-user-creation hooks
