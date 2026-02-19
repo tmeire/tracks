@@ -39,6 +39,9 @@ type Router interface {
 	LogHostEntries() Router
 	LogHostEntriesWithMessage(message string) Router
 	HealthCheck(path string, config ...HealthConfig) Router
+	Version(v string, config ...VersionConfig) Router
+	VersionFromHeader(header, value string, r Router) Router
+	VersionFromQuery(param, value string, r Router) Router
 	CSRFProtection(config CSRFConfig) Router
 	Cache() Cache
 	WithCache(c Cache) Router
@@ -426,6 +429,40 @@ func (r *router) LogHostEntriesWithMessage(message string) Router {
 	return r
 }
 
+func (r *router) VersionFromHeader(header, value string, vr Router) Router {
+	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+		h, err := vr.Handler()
+		if err != nil {
+			return nil, err
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if req.Header.Get(header) == value {
+				h.ServeHTTP(w, req)
+				return
+			}
+			next.ServeHTTP(w, req)
+		}), nil
+	})
+	return r
+}
+
+func (r *router) VersionFromQuery(param, value string, vr Router) Router {
+	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+		h, err := vr.Handler()
+		if err != nil {
+			return nil, err
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if req.URL.Query().Get(param) == value {
+				h.ServeHTTP(w, req)
+				return
+			}
+			next.ServeHTTP(w, req)
+		}), nil
+	})
+	return r
+}
+
 func (r *router) CSRFProtection(config CSRFConfig) Router {
 	r.GlobalMiddleware(CSRFProtection(config))
 	return r
@@ -805,6 +842,18 @@ func (e errRouter) LogHostEntriesWithMessage(message string) Router {
 }
 
 func (e errRouter) HealthCheck(path string, config ...HealthConfig) Router {
+	return e
+}
+
+func (e errRouter) Version(v string, config ...VersionConfig) Router {
+	return e
+}
+
+func (e errRouter) VersionFromHeader(header, value string, r Router) Router {
+	return e
+}
+
+func (e errRouter) VersionFromQuery(param, value string, r Router) Router {
 	return e
 }
 
