@@ -43,6 +43,7 @@ type Router interface {
 	VersionFromHeader(header, value string, r Router) Router
 	VersionFromQuery(param, value string, r Router) Router
 	RateLimit(config RateLimitConfig) Router
+	WebSocket(path string, handler WebSocketHandler, mws ...MiddlewareBuilder) Router
 	CSRFProtection(config CSRFConfig) Router
 	Cache() Cache
 	WithCache(c Cache) Router
@@ -864,6 +865,10 @@ func (e errRouter) VersionFromQuery(param, value string, r Router) Router {
 }
 
 func (e errRouter) RateLimit(config RateLimitConfig) Router {
+	return e
+}
+
+func (e errRouter) WebSocket(path string, handler WebSocketHandler, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
