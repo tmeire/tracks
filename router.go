@@ -30,6 +30,7 @@ type Router interface {
 	Module(m Module) Router
 	GlobalMiddleware(m Middleware) Router
 	DomainMiddleware() Middleware
+	DomainDatabase(config DomainDBConfig) Router
 	RequestMiddleware(m Middleware) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
@@ -283,6 +284,11 @@ func (r *router) GlobalMiddleware(m Middleware) Router {
 
 func (r *router) DomainMiddleware() Middleware {
 	return DomainMiddleware()
+}
+
+func (r *router) DomainDatabase(config DomainDBConfig) Router {
+	r.GlobalMiddleware(DomainDatabase(config))
+	return r
 }
 
 func (r *router) RequestMiddleware(m Middleware) Router {
@@ -608,6 +614,10 @@ func (e errRouter) DomainMiddleware() Middleware {
 	return func(h http.Handler) (http.Handler, error) {
 		return h, nil
 	}
+}
+
+func (e errRouter) DomainDatabase(config DomainDBConfig) Router {
+	return e
 }
 
 func (e errRouter) RequestMiddleware(m Middleware) Router {
