@@ -3,6 +3,11 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
+)
+
+var (
+	ErrDuplicate = errors.New("duplicate record")
 )
 
 // contextKey is a type for context keys specific to the multitenancy package

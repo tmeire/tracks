@@ -228,6 +228,7 @@ func (q *QueryBuilder[S, T]) Count(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer rows.Close()
 
 	if !rows.Next() {
 		return 0, fmt.Errorf("failed to get count from %s", q.tableName)

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -129,6 +130,19 @@ func (r *Repository[S, T]) Count(ctx context.Context) (int, error) {
 	return r.Select().Count(ctx)
 }
 
+// Exists checks if any record matches the given criteria
+func (r *Repository[S, T]) Exists(ctx context.Context, criteria map[string]any) (bool, error) {
+	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.exists")
+	defer span.End()
+
+	s := r.Select()
+	for field, value := range criteria {
+		s = s.Where(fmt.Sprintf("%s = ?", field), value)
+	}
+	count, err := s.Count(ctx)
+	return count > 0, err
+}
+
 // Create inserts a new record into the database
 func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "repository.create", trace.WithAttributes(attribute.String("table", r.zero.TableName())))
@@ -148,6 +162,28 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 			domain := DomainFromContext(ctx)
 			if domain != "" && ds.GetDomain() == "" {
 				ds.SetDomain(domain)
+			}
+
+			// Unique per domain validation
+			rv := reflect.ValueOf(model)
+			if rv.Kind() == reflect.Ptr {
+				rv = rv.Elem()
+			}
+			rt := rv.Type()
+			for i := 0; i < rt.NumField(); i++ {
+				field := rt.Field(i)
+				if strings.Contains(field.Tag.Get("validate"), "unique_per_domain") {
+					fieldName := strings.ToLower(field.Name) // Simple mapping, could be more robust
+					// Try to find the DB field name from Fields() or struct tags
+					// For now, assume field name is the same as DB column name
+					exists, err := r.Exists(ctx, map[string]any{fieldName: rv.Field(i).Interface()})
+					if err != nil {
+						return r.zero, err
+					}
+					if exists {
+						return r.zero, ErrDuplicate
+					}
+				}
 			}
 		}
 	}
