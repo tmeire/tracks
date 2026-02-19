@@ -4,19 +4,13 @@ import (
 	"context"
 	"net"
 	"net/http"
-)
 
-type domainKey struct{}
+	"github.com/tmeire/tracks/database"
+)
 
 // DomainFromContext returns the full domain stored in the context, or an empty string if not found.
 func DomainFromContext(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
-	if domain, ok := ctx.Value(domainKey{}).(string); ok {
-		return domain
-	}
-	return ""
+	return database.DomainFromContext(ctx)
 }
 
 // DomainMiddleware extracts the full domain from the Host header, stripping any port number.
@@ -31,8 +25,8 @@ func DomainMiddleware() Middleware {
 				domain = host
 			}
 
-			// Store domain in context
-			ctx := context.WithValue(r.Context(), domainKey{}, domain)
+			// Store domain in context using database helper for cross-package accessibility
+			ctx := database.WithDomain(r.Context(), domain)
 			r = r.WithContext(ctx)
 
 			// Store domain in view variables for templates

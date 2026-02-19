@@ -31,6 +31,7 @@ type Router interface {
 	GlobalMiddleware(m Middleware) Router
 	DomainMiddleware() Middleware
 	DomainDatabase(config DomainDBConfig) Router
+	DomainScopedRepositories() Router
 	RequestMiddleware(m Middleware) Router
 	Static(urlPath, dir string) Router
 	StaticWithConfig(urlPath, dir string, config StaticConfig) Router
@@ -318,6 +319,16 @@ func (r *router) DomainMiddleware() Middleware {
 
 func (r *router) DomainDatabase(config DomainDBConfig) Router {
 	r.GlobalMiddleware(DomainDatabase(config))
+	return r
+}
+
+func (r *router) DomainScopedRepositories() Router {
+	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := database.WithDomainFiltering(r.Context(), true)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		}), nil
+	})
 	return r
 }
 
@@ -647,6 +658,10 @@ func (e errRouter) DomainMiddleware() Middleware {
 }
 
 func (e errRouter) DomainDatabase(config DomainDBConfig) Router {
+	return e
+}
+
+func (e errRouter) DomainScopedRepositories() Router {
 	return e
 }
 

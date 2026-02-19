@@ -59,7 +59,22 @@ func (r *Repository[S, T]) AtomicUpdate(ctx context.Context, id any, ops ...Atom
 		r.zero.TableName(),
 		strings.Join(setClause, ", "))
 
-	args = append(args, id)
+	// Domain-aware scoping
+	if IsDomainFilteringEnabled(ctx) && !shouldSkipDomainScope(ctx) {
+		if _, ok := any(r.zero).(DomainScoped); ok {
+			domain := DomainFromContext(ctx)
+			if domain != "" {
+				query += " AND domain = ?"
+				args = append(args, id, domain)
+			} else {
+				args = append(args, id)
+			}
+		} else {
+			args = append(args, id)
+		}
+	} else {
+		args = append(args, id)
+	}
 
 	_, err := FromContext(ctx).ExecContext(ctx, query, args...)
 	return err
@@ -127,6 +142,16 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 		}
 	}
 
+	// Domain-aware scoping
+	if IsDomainFilteringEnabled(ctx) && !shouldSkipDomainScope(ctx) {
+		if ds, ok := any(model).(DomainScoped); ok {
+			domain := DomainFromContext(ctx)
+			if domain != "" && ds.GetDomain() == "" {
+				ds.SetDomain(domain)
+			}
+		}
+	}
+
 	// GetFunc all fields and values
 	fields := model.Fields()
 	values := model.Values()
@@ -134,6 +159,20 @@ func (r *Repository[S, T]) Create(ctx context.Context, model T) (T, error) {
 	if !model.HasAutoIncrementID() {
 		fields = append([]string{"id"}, fields...)
 		values = append([]any{model.GetID()}, values...)
+	}
+
+	// Domain-aware scoping
+	if IsDomainFilteringEnabled(ctx) && !shouldSkipDomainScope(ctx) {
+		if _, ok := any(model).(DomainScoped); ok {
+			domain := DomainFromContext(ctx)
+			if domain != "" {
+				// Inject domain if it's missing and we're dealing with a pointer that can be modified
+				// This is tricky with generics and interfaces.
+				// For now, we assume models that are DomainScoped will have their domain field set
+				// or we can try to set it via reflection if it's a pointer.
+				// But simpler is to just include it in the query if it's part of Fields()
+			}
+		}
 	}
 
 	// Create placeholders for the SQL query
@@ -212,6 +251,17 @@ func (r *Repository[S, T]) Update(ctx context.Context, model T) error {
 	// Add ID as the last argument for the WHERE clause
 	args = append(args, model.GetID())
 
+	// Domain-aware scoping
+	if IsDomainFilteringEnabled(ctx) && !shouldSkipDomainScope(ctx) {
+		if _, ok := any(model).(DomainScoped); ok {
+			domain := DomainFromContext(ctx)
+			if domain != "" {
+				query += " AND domain = ?"
+				args = append(args, domain)
+			}
+		}
+	}
+
 	_, err := FromContext(ctx).ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
@@ -242,8 +292,20 @@ func (r *Repository[S, T]) Delete(ctx context.Context, model T) error {
 	}
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", model.TableName())
+	args := []any{model.GetID()}
 
-	_, err := FromContext(ctx).ExecContext(ctx, query, model.GetID())
+	// Domain-aware scoping
+	if IsDomainFilteringEnabled(ctx) && !shouldSkipDomainScope(ctx) {
+		if _, ok := any(model).(DomainScoped); ok {
+			domain := DomainFromContext(ctx)
+			if domain != "" {
+				query += " AND domain = ?"
+				args = append(args, domain)
+			}
+		}
+	}
+
+	_, err := FromContext(ctx).ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}

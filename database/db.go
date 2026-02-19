@@ -10,6 +10,8 @@ type contextKey string
 
 const (
 	tenantDBContextKey contextKey = "db"
+	domainContextKey   contextKey = "domain"
+	domainFilterKey    contextKey = "domain_filter"
 )
 
 func WithDB(ctx context.Context, db Database) context.Context {
@@ -22,6 +24,27 @@ func FromContext(ctx context.Context) Database {
 		return nil
 	}
 	return db
+}
+
+func WithDomain(ctx context.Context, domain string) context.Context {
+	return context.WithValue(ctx, domainContextKey, domain)
+}
+
+func DomainFromContext(ctx context.Context) string {
+	domain, ok := ctx.Value(domainContextKey).(string)
+	if !ok {
+		return ""
+	}
+	return domain
+}
+
+func WithDomainFiltering(ctx context.Context, enabled bool) context.Context {
+	return context.WithValue(ctx, domainFilterKey, enabled)
+}
+
+func IsDomainFilteringEnabled(ctx context.Context) bool {
+	enabled, _ := ctx.Value(domainFilterKey).(bool)
+	return enabled
 }
 
 // Database represents a connection to a database
@@ -40,6 +63,37 @@ type Scanner interface {
 }
 
 type Schema interface{}
+
+// DomainScoped is the interface that models can implement to enable automatic domain-based filtering.
+type DomainScoped interface {
+	GetDomain() string
+	SetDomain(string)
+}
+
+// DomainScopedModel is a helper struct that models can embed to implement DomainScoped.
+type DomainScopedModel struct {
+	Domain string `json:"domain"`
+}
+
+func (m *DomainScopedModel) GetDomain() string {
+	return m.Domain
+}
+
+func (m *DomainScopedModel) SetDomain(d string) {
+	m.Domain = d
+}
+
+type skipDomainScopeKey struct{}
+
+// SkipDomainScope returns a new context that tells the repository to skip domain-based filtering.
+func SkipDomainScope(ctx context.Context) context.Context {
+	return context.WithValue(ctx, skipDomainScopeKey{}, true)
+}
+
+func shouldSkipDomainScope(ctx context.Context) bool {
+	skip, _ := ctx.Value(skipDomainScopeKey{}).(bool)
+	return skip
+}
 
 // Model is the interface that all database models must implement
 type Model[S Schema, T any] interface {

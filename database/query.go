@@ -64,7 +64,7 @@ type ExecutableQuery[S Schema, T Model[S, T]] interface {
 // Query is the base interface for all query types
 type Query interface {
 	// Build constructs the SQL query string and arguments
-	Build() (string, []any)
+	Build(ctx context.Context) (string, []any)
 }
 
 // QueryBuilder represents a SELECT query that can be further refined
@@ -111,7 +111,7 @@ func (q *QueryBuilder[S, T]) Offset(offset int) ExecutableQuery[S, T] {
 }
 
 // Build constructs the SQL query string and arguments
-func (q *QueryBuilder[S, T]) Build() (string, []any) {
+func (q *QueryBuilder[S, T]) Build(ctx context.Context) (string, []any) {
 	var fields string
 	if len(q.fields) > 0 {
 		if strings.HasPrefix(q.fields[0], "COUNT") {
@@ -125,8 +125,26 @@ func (q *QueryBuilder[S, T]) Build() (string, []any) {
 
 	query := "SELECT " + fields + " FROM " + q.tableName
 
-	if len(q.conditions) > 0 {
-		query += " WHERE " + strings.Join(q.conditions, " AND ")
+	conditions := q.conditions
+	args := q.args
+
+	// Domain-aware scoping
+	enabled := IsDomainFilteringEnabled(ctx)
+	skip := shouldSkipDomainScope(ctx)
+	if enabled && !skip {
+		_, ok := any(q.repo.zero).(DomainScoped)
+		if ok {
+			domain := DomainFromContext(ctx)
+			if domain != "" {
+				// Use the domain from context to filter queries
+				conditions = append(conditions, "domain = ?")
+				args = append(args, domain)
+			}
+		}
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	if len(q.orderBy) > 0 {
@@ -141,7 +159,7 @@ func (q *QueryBuilder[S, T]) Build() (string, []any) {
 		query += " OFFSET " + fmt.Sprintf("%d", q.offset)
 	}
 
-	return query, q.args
+	return query, args
 }
 
 // Execute runs the query and returns the results
@@ -149,7 +167,7 @@ func (q *QueryBuilder[S, T]) Execute(ctx context.Context) ([]T, error) {
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(ctx, "querybuilder.execute")
 	defer span.End()
 
-	query, args := q.Build()
+	query, args := q.Build(ctx)
 
 	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
@@ -180,7 +198,7 @@ func (q *QueryBuilder[S, T]) First(ctx context.Context) (T, error) {
 		q.Limit(1)
 	}
 
-	query, args := q.Build()
+	query, args := q.Build(ctx)
 
 	row := FromContext(ctx).QueryRowContext(ctx, query, args...)
 
@@ -204,7 +222,7 @@ func (q *QueryBuilder[S, T]) Count(ctx context.Context) (int, error) {
 
 	q2.fields = []string{"COUNT(*)"}
 
-	query, args := q2.Build()
+	query, args := q2.Build(ctx)
 
 	rows, err := FromContext(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
