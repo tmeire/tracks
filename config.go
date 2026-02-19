@@ -18,7 +18,12 @@ type Config struct {
 	Domains     []string                   `json:"domains"`
 	Sessions    config.Config              `json:"sessions"`
 	Database    database.Config            `json:"database"`
+	Cache       CacheConfig                `json:"cache"`
 	Modules     map[string]json.RawMessage `json:"modules"`
+}
+
+type CacheConfig struct {
+	Driver string `json:"driver"`
 }
 
 func configFileName() (string, error) {

@@ -39,6 +39,8 @@ type Router interface {
 	LogHostEntries() Router
 	LogHostEntriesWithMessage(message string) Router
 	CSRFProtection(config CSRFConfig) Router
+	Cache() Cache
+	WithCache(c Cache) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -66,6 +68,7 @@ type router struct {
 	port               int
 	baseDomain         string
 	database           database.Database
+	cache              Cache
 	mux                *http.ServeMux
 	globalMiddlewares  *middlewares
 	requestMiddlewares *middlewares
@@ -108,12 +111,18 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 		// Continue without translations, using keys as fallback
 	}
 
+	var c Cache
+	if conf.Cache.Driver == "memory" {
+		c = NewMemoryCache()
+	}
+
 	r := &router{
 		parent:             nil,
 		config:             conf,
 		port:               conf.Port,
 		baseDomain:         conf.BaseDomain,
 		database:           db,
+		cache:              c,
 		mux:                http.NewServeMux(),
 		globalMiddlewares:  &middlewares{},
 		requestMiddlewares: &middlewares{},
@@ -124,6 +133,16 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 
 	// HTTP traces for every request
 	r.GlobalMiddleware(otel.Trace)
+
+	// Inject cache into context
+	if c != nil {
+		r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := WithCache(r.Context(), c)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			}), nil
+		})
+	}
 
 	// Extract and store the full domain context
 	r.GlobalMiddleware(r.DomainMiddleware())
@@ -386,6 +405,15 @@ func (r *router) LogHostEntriesWithMessage(message string) Router {
 
 func (r *router) CSRFProtection(config CSRFConfig) Router {
 	r.GlobalMiddleware(CSRFProtection(config))
+	return r
+}
+
+func (r *router) Cache() Cache {
+	return r.cache
+}
+
+func (r *router) WithCache(c Cache) Router {
+	r.cache = c
 	return r
 }
 
@@ -743,6 +771,14 @@ func (e errRouter) LogHostEntriesWithMessage(message string) Router {
 }
 
 func (e errRouter) CSRFProtection(config CSRFConfig) Router {
+	return e
+}
+
+func (e errRouter) Cache() Cache {
+	return nil
+}
+
+func (e errRouter) WithCache(c Cache) Router {
 	return e
 }
 
