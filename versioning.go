@@ -112,6 +112,7 @@ func (v *versionRouter) HealthCheck(p string, c ...HealthConfig) Router { v.rout
 func (v *versionRouter) Version(vv string, c ...VersionConfig) Router { return v.router.Version(vv, c...) }
 func (v *versionRouter) VersionFromHeader(h, val string, r Router) Router { v.router.VersionFromHeader(h, val, r); return v }
 func (v *versionRouter) VersionFromQuery(p, val string, r Router) Router { v.router.VersionFromQuery(p, val, r); return v }
+func (v *versionRouter) RateLimit(c RateLimitConfig) Router { v.router.RateLimit(c); return v }
 func (v *versionRouter) CSRFProtection(c CSRFConfig) Router { v.router.CSRFProtection(c); return v }
 func (v *versionRouter) Cache() Cache { return v.router.Cache() }
 func (v *versionRouter) WithCache(c Cache) Router { v.router.WithCache(c); return v }

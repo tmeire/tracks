@@ -42,6 +42,7 @@ type Router interface {
 	Version(v string, config ...VersionConfig) Router
 	VersionFromHeader(header, value string, r Router) Router
 	VersionFromQuery(param, value string, r Router) Router
+	RateLimit(config RateLimitConfig) Router
 	CSRFProtection(config CSRFConfig) Router
 	Cache() Cache
 	WithCache(c Cache) Router
@@ -463,6 +464,11 @@ func (r *router) VersionFromQuery(param, value string, vr Router) Router {
 	return r
 }
 
+func (r *router) RateLimit(config RateLimitConfig) Router {
+	r.GlobalMiddleware(RateLimitMiddleware(config)(r))
+	return r
+}
+
 func (r *router) CSRFProtection(config CSRFConfig) Router {
 	r.GlobalMiddleware(CSRFProtection(config))
 	return r
@@ -854,6 +860,10 @@ func (e errRouter) VersionFromHeader(header, value string, r Router) Router {
 }
 
 func (e errRouter) VersionFromQuery(param, value string, r Router) Router {
+	return e
+}
+
+func (e errRouter) RateLimit(config RateLimitConfig) Router {
 	return e
 }
 
