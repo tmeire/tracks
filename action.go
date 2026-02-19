@@ -75,12 +75,33 @@ func (a *action) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// If there's an error, create an error response
 	if err != nil {
-		panic(err)
-		resp = &Response{
-			StatusCode: http.StatusInternalServerError,
-			Data: map[string]string{
-				"message": err.Error(),
-			},
+		if appErr, ok := err.(AppError); ok {
+			resp = &Response{
+				StatusCode: appErr.StatusCode,
+				Data: ErrorData{
+					Success: false,
+					Message: appErr.Message,
+					Code:    appErr.Code,
+				},
+			}
+		} else if appErrPtr, ok := err.(*AppError); ok {
+			resp = &Response{
+				StatusCode: appErrPtr.StatusCode,
+				Data: ErrorData{
+					Success: false,
+					Message: appErrPtr.Message,
+					Code:    appErrPtr.Code,
+				},
+			}
+		} else {
+			resp = &Response{
+				StatusCode: http.StatusInternalServerError,
+				Data: ErrorData{
+					Success: false,
+					Message: err.Error(),
+					Code:    "INTERNAL_SERVER_ERROR",
+				},
+			}
 		}
 	} else if response, ok := data.(*Response); ok {
 		// If data is already a Response, use it directly
@@ -175,9 +196,11 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err := a.template.ExecuteTemplate(w, strconv.Itoa(resp.StatusCode), nil)
+		err := a.template.ExecuteTemplate(w, strconv.Itoa(resp.StatusCode), resp)
 		if err != nil {
 			span.RecordError(err)
+			// If status-specific template fails, try a generic error template if it exists
+			// or just return the error to fallback to JSON
 			return err
 		}
 		return nil

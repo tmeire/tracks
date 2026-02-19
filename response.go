@@ -16,13 +16,32 @@ type Response struct {
 	Cookies []*http.Cookie
 }
 
+// ErrorData represents a standardized error response payload
+type ErrorData struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Code    string              `json:"code,omitempty"`
+	Errors  map[string][]string `json:"errors,omitempty"`
+}
+
+// AppError represents an application-specific error with HTTP status code
+type AppError struct {
+	StatusCode int
+	Code       string
+	Message    string
+	Details    map[string]any
+}
+
+func (e AppError) Error() string { return e.Message }
+
 // Conflict returns a 409 Conflict response.
 func Conflict(message string) *Response {
 	return &Response{
 		StatusCode: http.StatusConflict,
-		Data: map[string]any{
-			"success": false,
-			"message": message,
+		Data: ErrorData{
+			Success: false,
+			Message: message,
+			Code:    "CONFLICT",
 		},
 	}
 }
@@ -31,9 +50,10 @@ func Conflict(message string) *Response {
 func BadRequest(err error) *Response {
 	return &Response{
 		StatusCode: http.StatusBadRequest,
-		Data: map[string]any{
-			"success": false,
-			"message": err.Error(),
+		Data: ErrorData{
+			Success: false,
+			Message: err.Error(),
+			Code:    "BAD_REQUEST",
 		},
 	}
 }
@@ -42,18 +62,11 @@ func BadRequest(err error) *Response {
 func NotFound(message string) *Response {
 	return &Response{
 		StatusCode: http.StatusNotFound,
-		Data: map[string]any{
-			"success": false,
-			"message": message,
+		Data: ErrorData{
+			Success: false,
+			Message: message,
+			Code:    "NOT_FOUND",
 		},
-	}
-}
-
-// Created returns a 201 Created response.
-func Created(data any) *Response {
-	return &Response{
-		StatusCode: http.StatusCreated,
-		Data:       data,
 	}
 }
 
@@ -61,9 +74,10 @@ func Created(data any) *Response {
 func Forbidden(message string) *Response {
 	return &Response{
 		StatusCode: http.StatusForbidden,
-		Data: map[string]any{
-			"success": false,
-			"message": message,
+		Data: ErrorData{
+			Success: false,
+			Message: message,
+			Code:    "FORBIDDEN",
 		},
 	}
 }
@@ -72,9 +86,23 @@ func Forbidden(message string) *Response {
 func Unauthorized(message string) *Response {
 	return &Response{
 		StatusCode: http.StatusUnauthorized,
-		Data: map[string]any{
-			"success": false,
-			"message": message,
+		Data: ErrorData{
+			Success: false,
+			Message: message,
+			Code:    "UNAUTHORIZED",
+		},
+	}
+}
+
+// UnprocessableEntity returns a 422 Unprocessable Entity response.
+func UnprocessableEntity(message string, errors map[string][]string) *Response {
+	return &Response{
+		StatusCode: http.StatusUnprocessableEntity,
+		Data: ErrorData{
+			Success: false,
+			Message: message,
+			Code:    "VALIDATION_ERROR",
+			Errors:  errors,
 		},
 	}
 }
@@ -83,9 +111,12 @@ func Unauthorized(message string) *Response {
 func InternalServerError(err error) *Response {
 	return &Response{
 		StatusCode: http.StatusInternalServerError,
-		Data: map[string]any{
-			"success": false,
-			"message": err.Error(),
+		Data: ErrorData{
+			Success: false,
+			Message: err.Error(),
+			Code:    "INTERNAL_SERVER_ERROR",
 		},
 	}
 }
+
+// Created returns a 201 Created response.
