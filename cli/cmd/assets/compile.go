@@ -3,13 +3,14 @@ package assets
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/tmeire/tracks/cli/project"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/tmeire/tracks/cli/project"
 
 	"github.com/spf13/cobra"
 )
