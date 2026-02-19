@@ -192,7 +192,7 @@ func TestQueryBuilding(t *testing.T) {
 			query := tt.setupQuery(repo)
 
 			// Build the query and check the SQL and args
-			sql, args := query.Build()
+			sql, args := query.Build(context.Background())
 			if sql != tt.expectedSQL {
 				t.Errorf("unexpected SQL query: got %q, want %q", sql, tt.expectedSQL)
 			}
