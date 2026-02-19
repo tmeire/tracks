@@ -120,3 +120,19 @@ func InternalServerError(err error) *Response {
 }
 
 // Created returns a 201 Created response.
+func Created(data any) *Response {
+	return &Response{
+		StatusCode: http.StatusCreated,
+		Data:       data,
+	}
+}
+
+// ValidationError returns a validation error response.
+func ValidationError(err error) *Response {
+	if ve, ok := err.(interface {
+		FieldErrors() map[string][]string
+	}); ok {
+		return UnprocessableEntity("Validation failed", ve.FieldErrors())
+	}
+	return BadRequest(err)
+}
