@@ -35,6 +35,7 @@ type Router interface {
 	RequestMiddleware(m Middleware) Router
 	Static(urlPath, dir string) Router
 	StaticWithConfig(urlPath, dir string, config StaticConfig) Router
+	Content(path, dir string, config ContentConfig) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -330,6 +331,16 @@ func (r *router) DomainScopedRepositories() Router {
 		}), nil
 	})
 	return r
+}
+
+func (r *router) Content(path, dir string, config ContentConfig) Router {
+	// Generic registration is tricky with the current router API since it's not generic.
+	// But we can use a helper or just register the controller.
+	// However, ContentController is generic.
+	// Let's use a non-generic wrapper if needed, or just let users use NewContentController.
+	// For the sake of the API request, I'll use a type-agnostic controller for registration.
+	c := NewContentController[map[string]any](dir, config)
+	return c.Register(r, path)
 }
 
 func (r *router) RequestMiddleware(m Middleware) Router {
@@ -670,6 +681,10 @@ func (e errRouter) Static(urlPath, dir string) Router {
 }
 
 func (e errRouter) StaticWithConfig(urlPath, dir string, config StaticConfig) Router {
+	return e
+}
+
+func (e errRouter) Content(path, dir string, config ContentConfig) Router {
 	return e
 }
 
