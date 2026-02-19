@@ -38,6 +38,7 @@ type Router interface {
 	Content(path, dir string, config ContentConfig) Router
 	LogHostEntries() Router
 	LogHostEntriesWithMessage(message string) Router
+	HealthCheck(path string, config ...HealthConfig) Router
 	CSRFProtection(config CSRFConfig) Router
 	Cache() Cache
 	WithCache(c Cache) Router
@@ -800,6 +801,10 @@ func (e errRouter) LogHostEntries() Router {
 }
 
 func (e errRouter) LogHostEntriesWithMessage(message string) Router {
+	return e
+}
+
+func (e errRouter) HealthCheck(path string, config ...HealthConfig) Router {
 	return e
 }
 

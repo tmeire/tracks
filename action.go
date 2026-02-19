@@ -288,13 +288,13 @@ func (a *action) renderXML(r *http.Request, w http.ResponseWriter, resp *Respons
 func (a *action) renderText(r *http.Request, w http.ResponseWriter, resp *Response) error {
 	// For plain text, try to convert to string if possible
 	if str, ok := resp.Data.(string); ok {
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(resp.StatusCode)
 
 		_, err := w.Write([]byte(str))
 		return err
 	} else if bs, ok := resp.Data.([]byte); ok {
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(resp.StatusCode)
 
 		_, err := w.Write(bs)
