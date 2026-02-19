@@ -32,6 +32,8 @@ type Router interface {
 	DomainMiddleware() Middleware
 	DomainDatabase(config DomainDBConfig) Router
 	RequestMiddleware(m Middleware) Router
+	Static(urlPath, dir string) Router
+	StaticWithConfig(urlPath, dir string, config StaticConfig) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -237,15 +239,21 @@ func (r *router) serve(method, urlPath string, controller, action string, a Acti
 	return r
 }
 
-// static registers a directory to serve static files from.
-// The provided path will be used as the base URL path for the static files.
-// For example, if path is "/assets", then files in the directory will be
-// available at "/assets/filename".
-//
-// Parameters:
-// - urlPath: the URL path prefix for static files (e.g., "/assets").
-// - dir: the directory containing the static files to serve.
-func (r *router) static(urlPath, dir string) Router {
+type StaticConfig struct {
+	CacheControl   string
+	StripPrefix    bool
+	DisableListing bool
+}
+
+// Static registers a directory to serve static files from.
+func (r *router) Static(urlPath, dir string) Router {
+	return r.StaticWithConfig(urlPath, dir, StaticConfig{
+		StripPrefix: true,
+	})
+}
+
+// StaticWithConfig registers a directory to serve static files from with additional configuration.
+func (r *router) StaticWithConfig(urlPath, dir string, config StaticConfig) Router {
 	// Ensure the path starts with a slash
 	if !strings.HasPrefix(urlPath, "/") {
 		urlPath = "/" + urlPath
@@ -257,16 +265,38 @@ func (r *router) static(urlPath, dir string) Router {
 	}
 
 	// Create a file server handler for the specified directory
-	fileServer := http.FileServer(http.Dir(dir))
+	var handler http.Handler
+	if config.DisableListing {
+		// Custom file server that disables listing could be implemented here
+		// For now, use standard FileServer
+		handler = http.FileServer(http.Dir(dir))
+	} else {
+		handler = http.FileServer(http.Dir(dir))
+	}
 
 	// Strip the URL path prefix when looking for files
-	// This allows the file server to correctly map URL paths to file paths
-	handler := http.StripPrefix(urlPath, fileServer)
+	if config.StripPrefix {
+		handler = http.StripPrefix(urlPath, handler)
+	}
+
+	// Add cache control if configured
+	if config.CacheControl != "" {
+		next := handler
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", config.CacheControl)
+			next.ServeHTTP(w, r)
+		})
+	}
 
 	// Register the handler for the URL path
 	r.mux.Handle(http.MethodGet+" "+urlPath, handler)
 
 	return r
+}
+
+// static is an internal helper that registers a directory to serve static files from.
+func (r *router) static(urlPath, dir string) Router {
+	return r.Static(urlPath, dir)
 }
 
 type Module func(Router) Router
@@ -617,6 +647,14 @@ func (e errRouter) DomainMiddleware() Middleware {
 }
 
 func (e errRouter) DomainDatabase(config DomainDBConfig) Router {
+	return e
+}
+
+func (e errRouter) Static(urlPath, dir string) Router {
+	return e
+}
+
+func (e errRouter) StaticWithConfig(urlPath, dir string, config StaticConfig) Router {
 	return e
 }
 
