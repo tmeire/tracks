@@ -29,6 +29,7 @@ type Router interface {
 	Database() database.Database
 	Module(m Module) Router
 	GlobalMiddleware(m Middleware) Router
+	DomainMiddleware() Middleware
 	RequestMiddleware(m Middleware) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
@@ -115,6 +116,9 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 
 	// HTTP traces for every request
 	r.GlobalMiddleware(otel.Trace)
+
+	// Extract and store the full domain context
+	r.GlobalMiddleware(r.DomainMiddleware())
 
 	// Catch all panics to make sure no weird output is written to the client
 	r.GlobalMiddleware(CatchAll)
@@ -275,6 +279,10 @@ func (r *router) Module(m Module) Router {
 func (r *router) GlobalMiddleware(m Middleware) Router {
 	r.globalMiddlewares.Apply(m)
 	return r
+}
+
+func (r *router) DomainMiddleware() Middleware {
+	return DomainMiddleware()
 }
 
 func (r *router) RequestMiddleware(m Middleware) Router {
@@ -594,6 +602,12 @@ func (e errRouter) Module(m Module) Router {
 
 func (e errRouter) GlobalMiddleware(m Middleware) Router {
 	return e
+}
+
+func (e errRouter) DomainMiddleware() Middleware {
+	return func(h http.Handler) (http.Handler, error) {
+		return h, nil
+	}
 }
 
 func (e errRouter) RequestMiddleware(m Middleware) Router {

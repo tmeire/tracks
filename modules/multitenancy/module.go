@@ -1,6 +1,7 @@
 package multitenancy
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
@@ -63,6 +64,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	req = tracks.AddViewVar(req, "tenant", tenant)
+	req = tracks.AddViewVar(req, "Subdomain", subdomain)
 
 	// Get a database and add it to the context
 	db, err := s.tenantDB.GetTenantDB(req.Context(), tenant.ID)
@@ -73,20 +75,34 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx := database.WithDB(req.Context(), db)
+	ctx = context.WithValue(ctx, subdomainKey{}, subdomain)
 
 	// Call the next handler with the updated context
 	s.subdomains.ServeHTTP(w, req.WithContext(ctx))
 }
 
+type subdomainKey struct{}
+
+// SubdomainFromContext returns the subdomain stored in the context, or an empty string if not found.
+func SubdomainFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if subdomain, ok := ctx.Value(subdomainKey{}).(string); ok {
+		return subdomain
+	}
+	return ""
+}
+
 // extractSubdomain extracts the subdomain from the host
 func extractSubdomain(host string) string {
-	host, _, err := net.SplitHostPort(host)
+	h, _, err := net.SplitHostPort(host)
 	if err != nil {
-		return ""
+		h = host
 	}
 
 	// Split the host by dots
-	parts := strings.Split(host, ".")
+	parts := strings.Split(h, ".")
 
 	// If we have at least 3 parts (subdomain.domain.tld), the first part is the subdomain
 	if len(parts) >= 3 {
