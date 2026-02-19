@@ -47,7 +47,7 @@ type Action struct {
 // If the first return value is an opaque data object (not a Response), the status will be set to OK.
 type ActionFunc func(r *http.Request) (any, error)
 
-func (a ActionFunc) wrap(controllerName, actionName string, tpl *template.Template, translator *i18n.Translator) *action {
+func (a ActionFunc) wrap(controllerName, actionName string, tpl Template, translator *i18n.Translator) *action {
 	return &action{
 		name:       controllerName + "#" + actionName,
 		template:   tpl,
@@ -58,7 +58,7 @@ func (a ActionFunc) wrap(controllerName, actionName string, tpl *template.Templa
 
 type action struct {
 	name       string
-	template   *template.Template
+	template   Template
 	impl       ActionFunc
 	translator *i18n.Translator
 }
@@ -196,10 +196,18 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 
 	vars := ViewVars(ctx)
 
-	tpl, err := a.template.Clone()
-	if err != nil {
-		return err
+	// Resolve the correct template (potentially domain-specific)
+	var tpl *template.Template
+	if dt, ok := a.template.(*dynamicTemplate); ok {
+		tpl = dt.resolve(r)
+	} else {
+		var err error
+		tpl, err = a.template.Clone()
+		if err != nil {
+			return err
+		}
 	}
+
 	tpl.Funcs(template.FuncMap{
 		"t": func(key string, args ...interface{}) string {
 			if len(args) == 0 {
@@ -213,6 +221,12 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	})
 
 	// TODO: Write to a buffer and only write to the response on success
+	sessionData := session.FromRequest(r)
+	var flash map[string]string
+	if sessionData != nil {
+		flash = session.FlashMessages(r)
+	}
+
 	return tpl.ExecuteTemplate(w, "page", struct {
 		Title   string
 		Session session.Session
@@ -221,8 +235,8 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 		Vars    map[string]any
 	}{
 		Title:   resp.Title,
-		Session: session.FromRequest(r),
-		Flash:   session.FlashMessages(r),
+		Session: sessionData,
+		Flash:   flash,
 		Content: resp.Data,
 		Vars:    vars,
 	})

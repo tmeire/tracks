@@ -3,7 +3,9 @@ package tracks
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,13 +157,76 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 	return layout, nil
 }
 
-// Load loads the view associated with the controller and action from the templates directory. It will load the
-// base layouts from "./{{basedir}}/layouts/{{layout}}.gohtml", the view file from
-// "./{{basedir}}/{{controller}}/{{action}}.gohtml" and makes sure the two are properly linked together. The resulting
-// template has access to all functions that were registered before the call to Load.
-//
-// Not thread-safe!
-func (t *Templates) Load(layoutName, controller, action string) (*template.Template, error) {
+type Template interface {
+	ExecuteTemplate(w io.Writer, name string, data any) error
+	Clone() (*template.Template, error)
+}
+
+type dynamicTemplate struct {
+	ts         *Templates
+	layoutName string
+	controller string
+	action     string
+	defaultTpl *template.Template
+}
+
+func (dt *dynamicTemplate) resolve(r *http.Request) *template.Template {
+	domain := DomainFromContext(r.Context())
+	if domain == "" {
+		return dt.defaultTpl
+	}
+
+	// Check for domain-specific template
+	filename := dt.action + ".gohtml"
+	domainTemplatePath := filepath.Join(dt.ts.basedir, "domains", domain, dt.controller, filename)
+
+	if _, err := os.Stat(domainTemplatePath); err == nil {
+		// Found domain-specific template, load it
+		tpl, err := dt.ts.loadDomainTemplate(dt.layoutName, domain, dt.controller, dt.action)
+		if err == nil {
+			return tpl
+		}
+		slog.Warn("failed to load domain template", "domain", domain, "error", err)
+	}
+
+	return dt.defaultTpl
+}
+
+func (dt *dynamicTemplate) ExecuteTemplate(w io.Writer, name string, data any) error {
+	return dt.defaultTpl.ExecuteTemplate(w, name, data)
+}
+
+func (dt *dynamicTemplate) Clone() (*template.Template, error) {
+	return dt.defaultTpl.Clone()
+}
+
+func (t *Templates) loadDomainTemplate(layoutName, domain, controller, action string) (*template.Template, error) {
+	layout, ok := t.layouts[layoutName]
+	if !ok {
+		return nil, fmt.Errorf("layout %s not found", layoutName)
+	}
+
+	filename := action + ".gohtml"
+	templatePath := filepath.Join(t.basedir, "domains", domain, controller, filename)
+
+	page, err := layout.Clone()
+	if err != nil {
+		return nil, err
+	}
+
+	page, err = page.
+		New(filename).
+		Funcs(t.fns).
+		ParseFiles(templatePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return page.AddParseTree("yield", page.Tree)
+}
+
+// Load loads the view associated with the controller and action from the templates directory.
+func (t *Templates) Load(layoutName, controller, action string) (Template, error) {
 	if _, ok := t.layouts[layoutName]; !ok {
 		_layout, err := t.loadLayout(layoutName)
 		if err != nil {
@@ -198,14 +263,16 @@ func (t *Templates) Load(layoutName, controller, action string) (*template.Templ
 		return nil, err
 	}
 
-	// Add the same template again, but now with the name "yield" to make sure it can be called from the application
-	// Note: making the page template available to be rendered as "yield" in the layoutName template can be achieved in
-	// a couple of ways.
-	// * At the moment, we're 'renaming' the page template which may come at a bit of a memory cost.
-	// * We could also add a dynamic template that is just `{{ template 'action.gohtml' . }}`, which may come with a
-	//   little bit of extra runtime cost.
-	// * We could add a template function 'yield' which calls `page.ExecuteTemplate()`, which may also be a bit less
-	//   efficient at runtime wrt memory buffers etc.
-	// TODO: Try to properly evaluate the options above. This is good enough for now.
-	return page.AddParseTree("yield", page.Tree)
+	defaultTpl, err := page.AddParseTree("yield", page.Tree)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dynamicTemplate{
+		ts:         t,
+		layoutName: layoutName,
+		controller: controller,
+		action:     action,
+		defaultTpl: defaultTpl,
+	}, nil
 }
