@@ -36,6 +36,8 @@ type Router interface {
 	Static(urlPath, dir string) Router
 	StaticWithConfig(urlPath, dir string, config StaticConfig) Router
 	Content(path, dir string, config ContentConfig) Router
+	LogHostEntries() Router
+	LogHostEntriesWithMessage(message string) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -341,6 +343,44 @@ func (r *router) Content(path, dir string, config ContentConfig) Router {
 	// For the sake of the API request, I'll use a type-agnostic controller for registration.
 	c := NewContentController[map[string]any](dir, config)
 	return c.Register(r, path)
+}
+
+func (r *router) LogHostEntries() Router {
+	return r.LogHostEntriesWithMessage("Add these entries to /etc/hosts for local testing:")
+}
+
+func (r *router) LogHostEntriesWithMessage(message string) Router {
+	if !r.config.Development {
+		return r
+	}
+
+	fmt.Println("\n=== Local Development Setup ===")
+	fmt.Println(message)
+	fmt.Println()
+
+	for _, domain := range r.config.Domains {
+		fullDomain := domain
+		if r.config.BaseDomain != "" && !strings.Contains(domain, ".") {
+			fullDomain = fmt.Sprintf("%s.%s", domain, r.config.BaseDomain)
+		}
+		fmt.Printf("127.0.0.1  %s\n", fullDomain)
+	}
+
+	fmt.Println("\nOr run this command:")
+	var domains []string
+	for _, domain := range r.config.Domains {
+		fullDomain := domain
+		if r.config.BaseDomain != "" && !strings.Contains(domain, ".") {
+			fullDomain = fmt.Sprintf("%s.%s", domain, r.config.BaseDomain)
+		}
+		domains = append(domains, fullDomain)
+	}
+	if len(domains) > 0 {
+		fmt.Printf("sudo sh -c 'echo \"127.0.0.1 %s\" >> /etc/hosts'\n", strings.Join(domains, " "))
+	}
+	fmt.Println("==============================")
+
+	return r
 }
 
 func (r *router) RequestMiddleware(m Middleware) Router {
@@ -685,6 +725,14 @@ func (e errRouter) StaticWithConfig(urlPath, dir string, config StaticConfig) Ro
 }
 
 func (e errRouter) Content(path, dir string, config ContentConfig) Router {
+	return e
+}
+
+func (e errRouter) LogHostEntries() Router {
+	return e
+}
+
+func (e errRouter) LogHostEntriesWithMessage(message string) Router {
 	return e
 }
 
