@@ -41,6 +41,7 @@ type Router interface {
 	CSRFProtection(config CSRFConfig) Router
 	Cache() Cache
 	WithCache(c Cache) Router
+	Queue() Queue
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -69,6 +70,7 @@ type router struct {
 	baseDomain         string
 	database           database.Database
 	cache              Cache
+	queue              Queue
 	mux                *http.ServeMux
 	globalMiddlewares  *middlewares
 	requestMiddlewares *middlewares
@@ -116,6 +118,15 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 		c = NewMemoryCache()
 	}
 
+	var q Queue
+	if conf.Jobs.Driver == "memory" {
+		workers := conf.Jobs.Workers
+		if workers == 0 {
+			workers = 5
+		}
+		q = NewMemoryQueue(workers)
+	}
+
 	r := &router{
 		parent:             nil,
 		config:             conf,
@@ -123,6 +134,7 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 		baseDomain:         conf.BaseDomain,
 		database:           db,
 		cache:              c,
+		queue:              q,
 		mux:                http.NewServeMux(),
 		globalMiddlewares:  &middlewares{},
 		requestMiddlewares: &middlewares{},
@@ -133,6 +145,16 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 
 	// HTTP traces for every request
 	r.GlobalMiddleware(otel.Trace)
+
+	// Inject queue into context
+	if q != nil {
+		r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := WithQueue(r.Context(), q)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			}), nil
+		})
+	}
 
 	// Inject cache into context
 	if c != nil {
@@ -417,6 +439,10 @@ func (r *router) WithCache(c Cache) Router {
 	return r
 }
 
+func (r *router) Queue() Queue {
+	return r.queue
+}
+
 func (r *router) RequestMiddleware(m Middleware) Router {
 	r.requestMiddlewares.Apply(m)
 	return r
@@ -654,6 +680,13 @@ func (r *router) run(ctx context.Context, h http.Handler) error {
 		}
 	}()
 
+	if r.queue != nil {
+		if err := r.queue.Start(ctx); err != nil {
+			return err
+		}
+		defer r.queue.Stop()
+	}
+
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
 		syscall.SIGHUP,
@@ -780,6 +813,10 @@ func (e errRouter) Cache() Cache {
 
 func (e errRouter) WithCache(c Cache) Router {
 	return e
+}
+
+func (e errRouter) Queue() Queue {
+	return nil
 }
 
 func (e errRouter) RequestMiddleware(m Middleware) Router {

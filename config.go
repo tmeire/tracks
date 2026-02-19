@@ -19,11 +19,17 @@ type Config struct {
 	Sessions    config.Config              `json:"sessions"`
 	Database    database.Config            `json:"database"`
 	Cache       CacheConfig                `json:"cache"`
+	Jobs        JobsConfig                 `json:"jobs"`
 	Modules     map[string]json.RawMessage `json:"modules"`
 }
 
 type CacheConfig struct {
 	Driver string `json:"driver"`
+}
+
+type JobsConfig struct {
+	Driver  string `json:"driver"`
+	Workers int    `json:"workers"`
 }
 
 func configFileName() (string, error) {
