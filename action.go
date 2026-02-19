@@ -241,6 +241,12 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 		"v": func(key string) any {
 			return vars[key]
 		},
+		"csrf_token": func() string {
+			return CSRFTokenFromContext(r)
+		},
+		"csrf_field": func() template.HTML {
+			return CSRFField(r)
+		},
 	})
 
 	// TODO: Write to a buffer and only write to the response on success

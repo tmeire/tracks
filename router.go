@@ -38,6 +38,7 @@ type Router interface {
 	Content(path, dir string, config ContentConfig) Router
 	LogHostEntries() Router
 	LogHostEntriesWithMessage(message string) Router
+	CSRFProtection(config CSRFConfig) Router
 	Func(name string, fn any) Router
 	Views(path string) Router
 	Page(path string, view string) Router
@@ -380,6 +381,11 @@ func (r *router) LogHostEntriesWithMessage(message string) Router {
 	}
 	fmt.Println("==============================")
 
+	return r
+}
+
+func (r *router) CSRFProtection(config CSRFConfig) Router {
+	r.GlobalMiddleware(CSRFProtection(config))
 	return r
 }
 
@@ -733,6 +739,10 @@ func (e errRouter) LogHostEntries() Router {
 }
 
 func (e errRouter) LogHostEntriesWithMessage(message string) Router {
+	return e
+}
+
+func (e errRouter) CSRFProtection(config CSRFConfig) Router {
 	return e
 }
 
