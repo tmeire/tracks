@@ -34,6 +34,11 @@ func New(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Always enable WAL so we can replicate with litestream if needed
+	if _, err := sqlDB.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+
 	// Register DB stats to meter
 	_, err = otelsql.RegisterDBStatsMetrics(sqlDB, otelsql.WithAttributes(
 		semconv.DBSystemSqlite,
