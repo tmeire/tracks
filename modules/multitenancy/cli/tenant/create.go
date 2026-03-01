@@ -33,6 +33,8 @@ var blacklistedSubdomains = []string{
 
 // CreateCmd returns a cobra.Command for creating a new tenant
 func CreateCmd() *cobra.Command {
+	var active bool
+
 	createCmd := &cobra.Command{
 		Use:   "create [name] [subdomain]",
 		Short: "Create a new tenant",
@@ -63,7 +65,7 @@ func CreateCmd() *cobra.Command {
 			tenantDB := multitenancy.NewTenantRepositoryWithMigrations(centralDB, filepath.Join(".", "data"), filepath.Join(".", "migrations"))
 
 			// Create the tenant
-			tenant, err := tenantDB.CreateTenant(context.Background(), name, subdomain)
+			tenant, err := tenantDB.CreateTenant(context.Background(), name, subdomain, active)
 			if err != nil {
 				fmt.Printf("Failed to create tenant: %v\n", err)
 				return
@@ -73,9 +75,12 @@ func CreateCmd() *cobra.Command {
 			fmt.Printf("  ID: %d\n", tenant.ID)
 			fmt.Printf("  Name: %s\n", tenant.Name)
 			fmt.Printf("  Subdomain: %s\n", tenant.Subdomain)
+			fmt.Printf("  Active: %v\n", tenant.Active)
 			fmt.Printf("  Database: %s\n", tenant.DBPath)
 		},
 	}
+
+	createCmd.Flags().BoolVar(&active, "active", false, "Whether the tenant should be active by default")
 
 	return createCmd
 }

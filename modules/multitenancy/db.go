@@ -104,12 +104,13 @@ func (t *TenantRepository) createTenantDB(ctx context.Context, tenantID int) (da
 }
 
 // CreateTenant creates a new tenant with its own database
-func (t *TenantRepository) CreateTenant(ctx context.Context, name, subdomain string) (*Tenant, error) {
+func (t *TenantRepository) CreateTenant(ctx context.Context, name, subdomain string, active bool) (*Tenant, error) {
 	// Create a new tenant record
 	tenant := &Tenant{
 		Name:      name,
 		Subdomain: subdomain,
 		DBPath:    filepath.Join(t.storageDir, "Tenants", subdomain, "tenant.sqlite"),
+		Active:    active,
 	}
 
 	ctx = database.WithDB(ctx, t.centralDB)

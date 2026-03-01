@@ -39,7 +39,7 @@ func TestTenantDB(t *testing.T) {
 	defer tenantDB.Close()
 
 	// Create a tenant
-	tenant, err := tenantDB.CreateTenant(ctx, "Test Tenant", "test")
+	tenant, err := tenantDB.CreateTenant(ctx, "Test Tenant", "test", false)
 	if err != nil {
 		t.Fatalf("Failed to create tenant: %v", err)
 	}
@@ -54,6 +54,9 @@ func TestTenantDB(t *testing.T) {
 	if tenant.Subdomain != "test" {
 		t.Fatalf("Tenant subdomain should be 'test', got '%s'", tenant.Subdomain)
 	}
+	if tenant.Active {
+		t.Fatalf("New tenant should not be active by default")
+	}
 
 	// GetFunc the tenant by subdomain
 	tenant2, err := tenantDB.GetTenantBySubdomain(ctx, "test")
@@ -62,6 +65,9 @@ func TestTenantDB(t *testing.T) {
 	}
 	if tenant2.ID != tenant.ID {
 		t.Fatalf("Tenant IDs should match, got %d and %d", tenant.ID, tenant2.ID)
+	}
+	if tenant2.Active {
+		t.Fatalf("Retrieved tenant should not be active by default")
 	}
 
 	// GetFunc the tenant database

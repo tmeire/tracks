@@ -2,6 +2,7 @@ package multitenancy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,6 +18,16 @@ import (
 func Register(r tracks.Router) tracks.Router {
 	tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
 
+	// Register the pending activation landing page on the root domain
+	r.GetFunc("/pending-activation", "tenants", "pending", func(req *http.Request) (any, error) {
+		subdomain := req.URL.Query().Get("tenant")
+		tenant, err := tenantDB.GetTenantBySubdomain(req.Context(), subdomain)
+		if err != nil {
+			return nil, tracks.NotFound("Tenant not found")
+		}
+		return tenant, nil
+	})
+
 	rn := r.Clone().Views("./views/tenants")
 
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
@@ -25,9 +36,12 @@ func Register(r tracks.Router) tracks.Router {
 			return nil, err
 		}
 		return &splitter{
-			tenantDB:   tenantDB,
-			root:       next,
-			subdomains: h,
+			tenantDB:         tenantDB,
+			root:             next,
+			subdomains:       h,
+			subdomainsRouter: rn,
+			baseDomain:       r.BaseDomain(),
+			secure:           r.Secure(),
 		}, nil
 	})
 
@@ -37,8 +51,11 @@ func Register(r tracks.Router) tracks.Router {
 type splitter struct {
 	tenantDB *TenantRepository
 
-	root       http.Handler
-	subdomains http.Handler
+	root             http.Handler
+	subdomains       http.Handler
+	subdomainsRouter tracks.Router
+	baseDomain       string
+	secure           bool
 }
 
 func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -60,6 +77,19 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	tenant, err := s.tenantDB.GetTenantBySubdomain(req.Context(), subdomain)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	if !tenant.Active {
+		scheme := "http"
+		if s.secure {
+			scheme = "https"
+		}
+
+		// Redirect to the root domain's "welcome" or landing page
+		// We can use a query parameter to indicate which tenant was being accessed
+		target := fmt.Sprintf("%s://%s/pending-activation?tenant=%s", scheme, s.baseDomain, tenant.Subdomain)
+		http.Redirect(w, req, target, http.StatusSeeOther)
 		return
 	}
 
