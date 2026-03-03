@@ -23,7 +23,7 @@ func Register(r tracks.Router) tracks.Router {
 		subdomain := req.URL.Query().Get("tenant")
 		tenant, err := tenantDB.GetTenantBySubdomain(req.Context(), subdomain)
 		if err != nil {
-			return nil, tracks.NotFound("Tenant not found")
+			return tracks.NotFound("Tenant not found"), nil
 		}
 		return tenant, nil
 	})
