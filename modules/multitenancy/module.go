@@ -2,6 +2,7 @@ package multitenancy
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"net"
 	"net/http"
@@ -9,13 +10,22 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pressly/goose/v3"
 	"github.com/tmeire/tracks/database"
 
 	"github.com/tmeire/tracks"
 )
 
+// go:embed: migrations
+var migrations embed.FS
+
 // Register registers the multitenancy functionality with the router
 func Register(r tracks.Router) tracks.Router {
+	// Apply migrations for this module explicitly (lives outside default path)
+	goose.SetBaseFS(migrations)
+	_ = database.MigrateUpDir(context.Background(), r.Database(), database.CentralDatabase, filepath.Join("modules", "multitenancy", "db", "migrations", "central"))
+	goose.SetBaseFS(nil)
+
 	tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
 
 	// Register the pending activation landing page on the root domain
