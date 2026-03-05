@@ -16,31 +16,26 @@ import (
 	"github.com/tmeire/tracks"
 )
 
-// go:embed: migrations
+//go:embed migrations
 var migrations embed.FS
 
 // Register registers the multitenancy functionality with the router
 func Register(r tracks.Router) tracks.Router {
 	// Apply migrations for this module explicitly (lives outside default path)
 	goose.SetBaseFS(migrations)
-	_ = database.MigrateUpDir(context.Background(), r.Database(), database.CentralDatabase, filepath.Join("migrations", "central"))
+	database.MigrateUp(context.Background(), r.Database(), database.CentralDatabase)
 	goose.SetBaseFS(nil)
-
-	tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
 
 	// Register the pending activation landing page on the root domain
 	r.GetFunc("/pending-activation", "tenants", "pending", func(req *http.Request) (any, error) {
-		subdomain := req.URL.Query().Get("tenant")
-		tenant, err := tenantDB.GetTenantBySubdomain(req.Context(), subdomain)
-		if err != nil {
-			return tracks.NotFound("Tenant not found"), nil
-		}
-		return tenant, nil
+		return nil, nil
 	})
 
 	rn := r.Clone().Views("./views/tenants")
 
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+		tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
+
 		h, err := rn.Handler()
 		if err != nil {
 			return nil, err
@@ -98,7 +93,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// Redirect to the root domain's "welcome" or landing page
 		// We can use a query parameter to indicate which tenant was being accessed
-		target := fmt.Sprintf("%s://%s/pending-activation?tenant=%s", scheme, s.baseDomain, tenant.Subdomain)
+		target := fmt.Sprintf("%s://%s/pending-activation", scheme, s.baseDomain)
 		http.Redirect(w, req, target, http.StatusSeeOther)
 		return
 	}
@@ -109,7 +104,6 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Get a database and add it to the context
 	db, err := s.tenantDB.GetTenantDB(req.Context(), tenant.ID)
 	if err != nil {
-		panic(err)
 		http.Error(w, "Failed to connect to database", http.StatusInternalServerError)
 		return
 	}
