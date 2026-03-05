@@ -23,7 +23,7 @@ var migrations embed.FS
 func Register(r tracks.Router) tracks.Router {
 	// Apply migrations for this module explicitly (lives outside default path)
 	goose.SetBaseFS(migrations)
-	_ = database.MigrateUpDir(context.Background(), r.Database(), database.CentralDatabase, filepath.Join("modules", "multitenancy", "db", "migrations", "central"))
+	_ = database.MigrateUpDir(context.Background(), r.Database(), database.CentralDatabase, filepath.Join("migrations", "central"))
 	goose.SetBaseFS(nil)
 
 	tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
