@@ -109,7 +109,7 @@ func (t *TenantRepository) createTenantDB(ctx context.Context, tenantID int) (da
 		return nil, fmt.Errorf("failed to connect to tenant database: %w", err)
 	}
 
-	err = database.MigrateUp(ctx, tenantDB, database.TenantDatabase)
+	err = database.MigrateUpDir(ctx, tenantDB, database.TenantDatabase, filepath.Join(t.migrationsDir, "tenant"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply migrations: %w", err)
 	}

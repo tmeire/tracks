@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -34,7 +35,7 @@ func Register(r tracks.Router) tracks.Router {
 	rn := r.Clone().Views("./views/tenants")
 
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
-		tenantDB := NewTenantRepository(r.Database(), filepath.Join(".", "data"))
+		tenantDB := NewTenantRepositoryWithMigrations(r.Database(), filepath.Join(".", "data"), filepath.Join(".", "migrations"))
 
 		h, err := rn.Handler()
 		if err != nil {
@@ -104,6 +105,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Get a database and add it to the context
 	db, err := s.tenantDB.GetTenantDB(req.Context(), tenant.ID)
 	if err != nil {
+		slog.Error("Failed to connect to tenant database", "tenantID", tenant.ID, "dbPath", tenant.DBPath, "error", err)
 		http.Error(w, "Failed to connect to database", http.StatusInternalServerError)
 		return
 	}
@@ -111,6 +113,8 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := database.WithDB(req.Context(), db)
 	ctx = WithContext(ctx, tenant.ID)
 	ctx = context.WithValue(ctx, subdomainKey{}, subdomain)
+
+	slog.Info("Successfully connected to tenant database", "tenantID", tenant.ID, "subdomain", subdomain)
 
 	// Call the next handler with the updated context
 	s.subdomains.ServeHTTP(w, req.WithContext(ctx))
