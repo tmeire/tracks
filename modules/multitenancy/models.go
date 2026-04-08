@@ -96,3 +96,51 @@ func (ur *UserRole) HasAutoIncrementID() bool {
 func (ur *UserRole) GetID() any {
 	return ur.ID
 }
+
+// Profile represents a freelancer's public profile
+type Profile struct {
+	ID                 int
+	UserID             string
+	Bio                string
+	PortfolioURL       string
+	Specialties        string
+	IsPublic           bool
+	AvailabilityStatus string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+// TableName returns the name of the database table for this model
+func (p *Profile) TableName() string {
+	return "profiles"
+}
+
+// Fields returns the list of field names for this model
+func (p *Profile) Fields() []string {
+	return []string{"user_id", "bio", "portfolio_url", "specialties", "is_public", "availability_status", "created_at", "updated_at"}
+}
+
+// Values returns the values of the fields in the same order as Fields()
+func (p *Profile) Values() []any {
+	return []any{p.UserID, p.Bio, p.PortfolioURL, p.Specialties, p.IsPublic, p.AvailabilityStatus, p.CreatedAt, p.UpdatedAt}
+}
+
+// Scan scans the values from a row into this model
+func (p *Profile) Scan(_ context.Context, _ *Schema, row database.Scanner) (*Profile, error) {
+	var ret = Profile{}
+	err := row.Scan(&ret.ID, &ret.UserID, &ret.Bio, &ret.PortfolioURL, &ret.Specialties, &ret.IsPublic, &ret.AvailabilityStatus, &ret.CreatedAt, &ret.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
+// HasAutoIncrementID returns true if the ID is auto-incremented by the database
+func (p *Profile) HasAutoIncrementID() bool {
+	return true
+}
+
+// GetID returns the ID of the model
+func (p *Profile) GetID() any {
+	return p.ID
+}
