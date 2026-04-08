@@ -69,6 +69,13 @@ type Router interface {
 	Run(ctx context.Context) error
 }
 
+// NewErrorRouter returns a Router that is in an error state.
+// Any subsequent calls to this router will return the same error router,
+// and calling Handler() or Run() will return the provided error.
+func NewErrorRouter(err error) Router {
+	return errRouter{err: err}
+}
+
 type router struct {
 	parent             *router
 	config             Config

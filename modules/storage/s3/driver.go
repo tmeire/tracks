@@ -2,14 +2,37 @@ package s3
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/tmeire/tracks/storage"
+	"github.com/tmeire/tracks/modules/storage"
 )
+
+type Config struct {
+	Bucket string `json:"bucket"`
+	Region string `json:"region"`
+}
+
+func init() {
+	storage.RegisterDriver("s3", func(conf json.RawMessage) (storage.Driver, error) {
+		var c Config
+		if err := json.Unmarshal(conf, &c); err != nil {
+			return nil, err
+		}
+
+		cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(c.Region))
+		if err != nil {
+			return nil, err
+		}
+
+		client := s3.NewFromConfig(cfg)
+		return NewDriver(client, c.Bucket), nil
+	})
+}
 
 type Driver struct {
 	client        *s3.Client

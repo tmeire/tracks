@@ -2,6 +2,7 @@ package disk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,20 @@ import (
 
 	"github.com/tmeire/tracks/modules/storage"
 )
+
+type Config struct {
+	Root string `json:"root"`
+}
+
+func init() {
+	storage.RegisterDriver("disk", func(conf json.RawMessage) (storage.Driver, error) {
+		var c Config
+		if err := json.Unmarshal(conf, &c); err != nil {
+			return nil, err
+		}
+		return NewDriver(c.Root), nil
+	})
+}
 
 // Driver implements storage.Driver for local disk storage
 type Driver struct {

@@ -24,7 +24,7 @@ type TenantIDExtractor func(context.Context) (string, error)
 type StorageService struct {
 	driver            Driver
 	db                database.Database
-	repo              *database.Repository[*StorageService, *Blob]
+	blobs             *database.Repository[*StorageService, *Blob]
 	tenantIDExtractor TenantIDExtractor
 }
 
@@ -42,7 +42,7 @@ func NewStorageService(ctx context.Context, db database.Database, driver Driver,
 		db:                db,
 		tenantIDExtractor: extractor,
 	}
-	s.repo = database.NewRepository[*StorageService, *Blob](s)
+	s.blobs = database.NewRepository[*StorageService, *Blob](s)
 	return s, nil
 }
 
@@ -99,10 +99,7 @@ func (s *StorageService) Attach(ctx context.Context, r io.Reader, filename strin
 		CreatedAt:   time.Now(),
 	}
 
-	// Ensure we use the database associated with this service (Central DB)
-	// even if the context has a Tenant DB attached.
-	dbCtx := database.WithDB(ctx, s.db)
-	createdBlob, err := s.repo.Create(dbCtx, blob)
+	createdBlob, err := s.blobs.Create(database.WithDB(ctx, s.db), blob)
 	if err != nil {
 		// Try to cleanup the file if DB insert fails
 		_ = s.driver.Delete(ctx, storageKey)
@@ -120,4 +117,9 @@ func (s *StorageService) Get(ctx context.Context, blob *Blob) (io.ReadCloser, er
 // URL generates a signed URL for the blob
 func (s *StorageService) URL(ctx context.Context, blob *Blob, expires time.Duration) (string, error) {
 	return s.driver.URL(ctx, s.getStorageKey(ctx, blob.Key), expires)
+}
+
+// CentralDB returns the central database used for blob metadata storage.
+func (s *StorageService) CentralDB() database.Database {
+	return s.db
 }

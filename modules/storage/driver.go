@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"time"
 )
@@ -18,4 +19,15 @@ type Driver interface {
 	URL(ctx context.Context, key string, expires time.Duration) (string, error)
 	// SignUpload generates a signed URL for direct client-side upload (e.g., via PUT)
 	SignUpload(ctx context.Context, key string, expires time.Duration, contentType string) (string, error)
+}
+
+// DriverFactory is a function that creates a Driver from raw JSON configuration
+type DriverFactory func(conf json.RawMessage) (Driver, error)
+
+var drivers = make(map[string]DriverFactory)
+
+// RegisterDriver adds a new driver factory to the registry.
+// This is typically called from a driver's init() function.
+func RegisterDriver(name string, factory DriverFactory) {
+	drivers[name] = factory
 }

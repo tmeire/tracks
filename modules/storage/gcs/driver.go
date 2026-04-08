@@ -2,12 +2,33 @@ package gcs
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"time"
 
 	"cloud.google.com/go/storage"
-	tstorage "github.com/tmeire/tracks/storage"
+	tstorage "github.com/tmeire/tracks/modules/storage"
 )
+
+type Config struct {
+	Bucket string `json:"bucket"`
+}
+
+func init() {
+	tstorage.RegisterDriver("gcs", func(conf json.RawMessage) (tstorage.Driver, error) {
+		var c Config
+		if err := json.Unmarshal(conf, &c); err != nil {
+			return nil, err
+		}
+
+		client, err := storage.NewClient(context.Background())
+		if err != nil {
+			return nil, err
+		}
+
+		return NewDriver(client, c.Bucket), nil
+	})
+}
 
 type Driver struct {
 	client *storage.Client
