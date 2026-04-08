@@ -18,6 +18,10 @@ func NewSchema() *Schema {
 	return s
 }
 
+func (s *Schema) Users() *database.Repository[*Schema, *User] {
+	return s.users
+}
+
 func (s *Schema) CreateNewUser(ctx context.Context, name, email, password string) (*User, error) {
 	// Check if a user with this email already exists
 	existingUsers, err := s.users.FindBy(ctx, map[string]any{"email": email})
