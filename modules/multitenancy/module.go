@@ -109,6 +109,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx := database.WithDB(req.Context(), db)
+	ctx = WithContext(ctx, tenant.ID)
 	ctx = context.WithValue(ctx, subdomainKey{}, subdomain)
 
 	// Call the next handler with the updated context

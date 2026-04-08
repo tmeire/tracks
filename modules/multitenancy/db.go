@@ -10,6 +10,21 @@ import (
 	"github.com/tmeire/tracks/database/sqlite"
 )
 
+type tenantIDKey struct{}
+
+// WithContext returns a new context with the tenant ID
+func WithContext(ctx context.Context, tenantID int) context.Context {
+	return context.WithValue(ctx, tenantIDKey{}, tenantID)
+}
+
+// FromContext returns the tenant ID from the context
+func FromContext(ctx context.Context) int {
+	if id, ok := ctx.Value(tenantIDKey{}).(int); ok {
+		return id
+	}
+	return 0
+}
+
 type Schema struct {
 	Tenants   *database.Repository[*Schema, *Tenant]
 	UserRoles *database.Repository[*Schema, *UserRole]
