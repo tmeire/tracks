@@ -111,6 +111,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx := database.WithDB(req.Context(), db)
+	ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
 	ctx = WithContext(ctx, tenant.ID)
 	ctx = context.WithValue(ctx, subdomainKey{}, subdomain)
 

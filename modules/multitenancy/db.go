@@ -11,6 +11,7 @@ import (
 )
 
 type tenantIDKey struct{}
+type centralDBKey struct{}
 
 // WithContext returns a new context with the tenant ID
 func WithContext(ctx context.Context, tenantID int) context.Context {
@@ -23,6 +24,24 @@ func FromContext(ctx context.Context) int {
 		return id
 	}
 	return 0
+}
+
+// WithCentralDB returns a new context with the central database
+func WithCentralDB(ctx context.Context, db database.Database) context.Context {
+	return context.WithValue(ctx, centralDBKey{}, db)
+}
+
+// CentralDBFromContext returns the central database from the context
+func CentralDBFromContext(ctx context.Context) database.Database {
+	if db, ok := ctx.Value(centralDBKey{}).(database.Database); ok {
+		return db
+	}
+	return nil
+}
+
+// UseCentralDB returns a context that uses the central database for queries
+func UseCentralDB(ctx context.Context) context.Context {
+	return database.WithDB(ctx, CentralDBFromContext(ctx))
 }
 
 type Schema struct {
