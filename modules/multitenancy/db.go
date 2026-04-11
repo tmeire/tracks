@@ -147,6 +147,7 @@ func (t *TenantRepository) CreateTenant(ctx context.Context, name, subdomain str
 		Subdomain: subdomain,
 		DBPath:    filepath.Join(t.storageDir, "Tenants", subdomain, "tenant.sqlite"),
 		Active:    active,
+		PlanID:    "free",
 	}
 
 	ctx = database.WithDB(ctx, t.centralDB)

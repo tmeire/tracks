@@ -12,6 +12,7 @@ type Tenant struct {
 	Name      string
 	Subdomain string
 	DBPath    string
+	PlanID    string
 	Active    bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -24,18 +25,18 @@ func (t *Tenant) TableName() string {
 
 // Fields returns the list of field names for this model
 func (t *Tenant) Fields() []string {
-	return []string{"name", "subdomain", "db_path", "active", "created_at", "updated_at"}
+	return []string{"name", "subdomain", "db_path", "plan_id", "active", "created_at", "updated_at"}
 }
 
 // Values returns the values of the fields in the same order as Fields()
 func (t *Tenant) Values() []any {
-	return []any{t.Name, t.Subdomain, t.DBPath, t.Active, t.CreatedAt, t.UpdatedAt}
+	return []any{t.Name, t.Subdomain, t.DBPath, t.PlanID, t.Active, t.CreatedAt, t.UpdatedAt}
 }
 
 // Scan scans the values from a row into this model
 func (t *Tenant) Scan(_ context.Context, _ *Schema, row database.Scanner) (*Tenant, error) {
 	var ret = Tenant{}
-	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.DBPath, &ret.Active, &ret.CreatedAt, &ret.UpdatedAt)
+	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.DBPath, &ret.PlanID, &ret.Active, &ret.CreatedAt, &ret.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
