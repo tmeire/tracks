@@ -29,8 +29,10 @@ func (s *Store) Load(_ context.Context, id string) (session.Session, bool) {
 
 func (s *Store) Create(_ context.Context) session.Session {
 	session := &sessionData{
-		Id:   generateSessionID(),
-		Data: make(map[string]string),
+		Id:       generateSessionID(),
+		Data:     make(map[string]string),
+		FlashOld: make(map[string]string),
+		FlashNew: make(map[string]string),
 	}
 
 	s.sessMu.Lock()

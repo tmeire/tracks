@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -34,8 +35,13 @@ func MigrateUpFS(ctx context.Context, db Database, dbType Type, migrationsDir fs
 }
 
 func MigrateUp(ctx context.Context, db Database, dbType Type) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
 	// Use the appropriate migrations directory based on the database type
-	migrationsDir := filepath.Join("migrations", string(dbType))
+	migrationsDir := filepath.Join(cwd, "migrations", string(dbType))
 
 	return MigrateUpDir(ctx, db, dbType, migrationsDir)
 }
