@@ -8,14 +8,15 @@ import (
 
 // Tenant represents a tenant in the system
 type Tenant struct {
-	ID        int
-	Name      string
-	Subdomain string
-	DBPath    string
-	PlanID    string
-	Active    bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                  int
+	Name                string
+	Subdomain           string
+	DBPath              string
+	PlanID              string
+	FreelancerSeatCount int
+	Active              bool
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // TableName returns the name of the database table for this model
@@ -25,22 +26,33 @@ func (t *Tenant) TableName() string {
 
 // Fields returns the list of field names for this model
 func (t *Tenant) Fields() []string {
-	return []string{"name", "subdomain", "db_path", "plan_id", "active", "created_at", "updated_at"}
+	return []string{"name", "subdomain", "db_path", "plan_id", "freelancer_seat_count", "active", "created_at", "updated_at"}
 }
 
 // Values returns the values of the fields in the same order as Fields()
 func (t *Tenant) Values() []any {
-	return []any{t.Name, t.Subdomain, t.DBPath, t.PlanID, t.Active, t.CreatedAt, t.UpdatedAt}
+	return []any{t.Name, t.Subdomain, t.DBPath, t.PlanID, t.FreelancerSeatCount, t.Active, t.CreatedAt, t.UpdatedAt}
 }
 
 // Scan scans the values from a row into this model
 func (t *Tenant) Scan(_ context.Context, _ *Schema, row database.Scanner) (*Tenant, error) {
 	var ret = Tenant{}
-	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.DBPath, &ret.PlanID, &ret.Active, &ret.CreatedAt, &ret.UpdatedAt)
+	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.DBPath, &ret.PlanID, &ret.FreelancerSeatCount, &ret.Active, &ret.CreatedAt, &ret.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &ret, nil
+}
+
+func (t *Tenant) BeforeCreate(_ context.Context) error {
+	now := time.Now()
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = now
+	}
+	if t.UpdatedAt.IsZero() {
+		t.UpdatedAt = now
+	}
+	return nil
 }
 
 // HasAutoIncrementID returns true if the ID is auto-incremented by the database
@@ -86,6 +98,17 @@ func (ur *UserRole) Scan(_ context.Context, _ *Schema, row database.Scanner) (*U
 		return nil, err
 	}
 	return &res, nil
+}
+
+func (ur *UserRole) BeforeCreate(_ context.Context) error {
+	now := time.Now()
+	if ur.CreatedAt.IsZero() {
+		ur.CreatedAt = now
+	}
+	if ur.UpdatedAt.IsZero() {
+		ur.UpdatedAt = now
+	}
+	return nil
 }
 
 // HasAutoIncrementID returns true if the ID is auto-incremented by the database

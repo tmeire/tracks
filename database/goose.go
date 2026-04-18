@@ -27,11 +27,7 @@ func MigrateUpFS(ctx context.Context, db Database, dbType Type, migrationsDir fs
 	goose.SetBaseFS(migrationsDir)
 	defer goose.SetBaseFS(nil)
 
-	return MigrateUp(
-		ctx,
-		db,
-		dbType,
-	)
+	return MigrateUpDir(ctx, db, dbType, filepath.Join("migrations", string(dbType)))
 }
 
 func MigrateUp(ctx context.Context, db Database, dbType Type) error {

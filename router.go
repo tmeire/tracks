@@ -53,8 +53,8 @@ type Router interface {
 	Page(path string, view string) Router
 	Redirect(origin string, destination string) Router
 	Serve(a Action) Router
-	Controller(c Controller) Router
-	ControllerAtPath(path string, c Controller) Router
+	Controller(c Controller, mws ...MiddlewareBuilder) Router
+	ControllerAtPath(path string, c Controller, mws ...MiddlewareBuilder) Router
 	Get(path string, controller, action string, r ActionController, mws ...MiddlewareBuilder) Router
 	GetFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
 	PostFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
@@ -278,7 +278,7 @@ func (r *router) serve(method, urlPath string, controller, action string, a Acti
 	normalizedPath := r.normalize(urlPath)
 
 	pattern := method + " " + normalizedPath
-	println(pattern)
+	fmt.Printf("DEBUG: Registering route: %s (Controller: %s, Action: %s, Router: %p)\n", pattern, controller, action, r)
 
 	if layout == "" {
 		layout = defaultLayout
@@ -551,12 +551,12 @@ func (r *router) Serve(a Action) Router {
 	return r.serve(a.Method, a.Path, a.Controller, a.Name, a.Func, a.Layout, a.Middlewares...)
 }
 
-func (r *router) Controller(c Controller) Router {
-	return c.Register(r, "/")
+func (r *router) Controller(c Controller, mws ...MiddlewareBuilder) Router {
+	return c.Register(r, "/", mws...)
 }
 
-func (r *router) ControllerAtPath(path string, c Controller) Router {
-	return c.Register(r, path)
+func (r *router) ControllerAtPath(path string, c Controller, mws ...MiddlewareBuilder) Router {
+	return c.Register(r, path, mws...)
 }
 
 // Get registers a handler for HTTP GET requests to the specified path.
@@ -919,11 +919,11 @@ func (e errRouter) Serve(a Action) Router {
 	return e
 }
 
-func (e errRouter) Controller(c Controller) Router {
+func (e errRouter) Controller(c Controller, mws ...MiddlewareBuilder) Router {
 	return e
 }
 
-func (e errRouter) ControllerAtPath(path string, c Controller) Router {
+func (e errRouter) ControllerAtPath(path string, c Controller, mws ...MiddlewareBuilder) Router {
 	return e
 }
 

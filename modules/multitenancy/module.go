@@ -27,11 +27,6 @@ func Register(r tracks.Router) tracks.Router {
 	database.MigrateUp(context.Background(), r.Database(), database.CentralDatabase)
 	goose.SetBaseFS(nil)
 
-	// Register the pending activation landing page on the root domain
-	r.GetFunc("/pending-activation", "tenants", "pending", func(req *http.Request) (any, error) {
-		return nil, nil
-	})
-
 	rn := r.Clone().Views("./views/tenants")
 
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
@@ -65,7 +60,12 @@ type splitter struct {
 }
 
 func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	subdomain := extractSubdomain(req.Host)
+	subdomain := extractSubdomain(req.Host, s.baseDomain)
+	fmt.Printf("DEBUG: Splitter: Request %s %s (Host: %s, Subdomain: %s)\n", req.Method, req.URL.Path, req.Host, subdomain)
+
+	ctx := req.Context()
+	ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
+
 	if subdomain == "" {
 		if req.Referer() != "" {
 			r, err := url.Parse(req.Referer())
@@ -75,12 +75,12 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		s.root.ServeHTTP(w, req)
+		s.root.ServeHTTP(w, req.WithContext(ctx))
 		return
 	}
 
 	// Find the tenant by subdomain, add the central db to the context
-	tenant, err := s.tenantDB.GetTenantBySubdomain(req.Context(), subdomain)
+	tenant, err := s.tenantDB.GetTenantBySubdomain(ctx, subdomain)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
@@ -103,15 +103,14 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req = tracks.AddViewVar(req, "Subdomain", subdomain)
 
 	// Get a database and add it to the context
-	db, err := s.tenantDB.GetTenantDB(req.Context(), tenant.ID)
+	db, err := s.tenantDB.GetTenantDB(ctx, tenant.ID)
 	if err != nil {
 		slog.Error("Failed to connect to tenant database", "tenantID", tenant.ID, "dbPath", tenant.DBPath, "error", err)
 		http.Error(w, "Failed to connect to database", http.StatusInternalServerError)
 		return
 	}
 
-	ctx := database.WithDB(req.Context(), db)
-	ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
+	ctx = database.WithDB(ctx, db)
 	ctx = WithContext(ctx, tenant.ID)
 	ctx = context.WithValue(ctx, subdomainKey{}, subdomain)
 
@@ -135,20 +134,24 @@ func SubdomainFromContext(ctx context.Context) string {
 }
 
 // extractSubdomain extracts the subdomain from the host
-func extractSubdomain(host string) string {
+func extractSubdomain(host, baseDomain string) string {
 	h, _, err := net.SplitHostPort(host)
 	if err != nil {
 		h = host
 	}
 
-	// Split the host by dots
-	parts := strings.Split(h, ".")
-
-	// If we have at least 3 parts (subdomain.domain.tld), the first part is the subdomain
-	if len(parts) >= 3 {
-		return parts[0]
+	bh, _, err := net.SplitHostPort(baseDomain)
+	if err != nil {
+		bh = baseDomain
 	}
 
-	// No subdomain found
+	if h == bh {
+		return ""
+	}
+
+	if strings.HasSuffix(h, "."+bh) {
+		return strings.TrimSuffix(h, "."+bh)
+	}
+
 	return ""
 }

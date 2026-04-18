@@ -9,17 +9,23 @@ import (
 )
 
 type Schema struct {
-	users *database.Repository[*Schema, *User]
+	users       *database.Repository[*Schema, *User]
+	systemRoles *database.Repository[*Schema, *SystemRole]
 }
 
 func NewSchema() *Schema {
 	s := &Schema{}
 	s.users = database.NewRepository[*Schema, *User](s)
+	s.systemRoles = database.NewRepository[*Schema, *SystemRole](s)
 	return s
 }
 
 func (s *Schema) Users() *database.Repository[*Schema, *User] {
 	return s.users
+}
+
+func (s *Schema) SystemRoles() *database.Repository[*Schema, *SystemRole] {
+	return s.systemRoles
 }
 
 func (s *Schema) CreateNewUser(ctx context.Context, name, email, password string) (*User, error) {

@@ -182,6 +182,7 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	defer span.End()
 
 	if resp.Location != "" {
+		fmt.Printf("DEBUG: renderHTML redirecting to %s (Request: %s %s)\n", resp.Location, r.Method, r.URL.Path)
 		// TODO: Not really a fan of hardcoding support for HTMX in here. This feels like we need some kind of hook
 		// system here so we can also support libraries like Turbo JS.
 		if r.Header.Get("hx-request") == "true" {

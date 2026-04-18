@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/tmeire/tracks"
-	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/modules/multitenancy"
 )
 
@@ -89,12 +88,4 @@ func FromContext(ctx context.Context) *StorageService {
 // This is intended for use in background jobs where no request context is available.
 func StorageServiceFromContext() *StorageService {
 	return globalService
-}
-
-// CentralDBFromContext returns the central database from the context, or nil if not found.
-func CentralDBFromContext(ctx context.Context) database.Database {
-	if db, ok := ctx.Value(centralDBKey{}).(database.Database); ok {
-		return db
-	}
-	return nil
 }

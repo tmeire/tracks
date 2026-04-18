@@ -126,8 +126,13 @@ func (v *versionRouter) Views(path string) Router { v.router.Views(path); return
 func (v *versionRouter) Page(path, view string) Router { v.router.Page(v.prefix+path, view); return v }
 func (v *versionRouter) Redirect(o, d string) Router { v.router.Redirect(o, d); return v }
 func (v *versionRouter) Serve(a Action) Router { a.Path = v.prefix + a.Path; v.router.Serve(a); return v }
-func (v *versionRouter) Controller(c Controller) Router { return v.router.ControllerAtPath(v.prefix, c) }
-func (v *versionRouter) ControllerAtPath(path string, c Controller) Router { return v.router.ControllerAtPath(v.prefix+path, c) }
+func (v *versionRouter) Controller(c Controller, mws ...MiddlewareBuilder) Router {
+	return v.ControllerAtPath("/", c, mws...)
+}
+func (v *versionRouter) ControllerAtPath(path string, c Controller, mws ...MiddlewareBuilder) Router {
+	mws = append([]MiddlewareBuilder{v.versionMiddleware}, mws...)
+	return v.router.ControllerAtPath(v.prefix+path, c, mws...)
+}
 func (v *versionRouter) Get(path, c, a string, ac ActionController, mws ...MiddlewareBuilder) Router {
 	mws = append([]MiddlewareBuilder{v.versionMiddleware}, mws...)
 	v.router.Get(v.prefix+path, c, a, ac, mws...)
