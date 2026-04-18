@@ -15,6 +15,7 @@ type Tenant struct {
 	DBPath              string
 	PlanID              string
 	FreelancerSeatCount int
+	StaffSeatCount      int
 	Active              bool
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -27,18 +28,18 @@ func (t *Tenant) TableName() string {
 
 // Fields returns the list of field names for this model
 func (t *Tenant) Fields() []string {
-	return []string{"name", "subdomain", "custom_domain", "db_path", "plan_id", "freelancer_seat_count", "active", "created_at", "updated_at"}
+	return []string{"name", "subdomain", "custom_domain", "db_path", "plan_id", "freelancer_seat_count", "staff_seat_count", "active", "created_at", "updated_at"}
 }
 
 // Values returns the values of the fields in the same order as Fields()
 func (t *Tenant) Values() []any {
-	return []any{t.Name, t.Subdomain, t.CustomDomain, t.DBPath, t.PlanID, t.FreelancerSeatCount, t.Active, t.CreatedAt, t.UpdatedAt}
+	return []any{t.Name, t.Subdomain, t.CustomDomain, t.DBPath, t.PlanID, t.FreelancerSeatCount, t.StaffSeatCount, t.Active, t.CreatedAt, t.UpdatedAt}
 }
 
 // Scan scans the values from a row into this model
 func (t *Tenant) Scan(_ context.Context, _ *Schema, row database.Scanner) (*Tenant, error) {
 	var ret = Tenant{}
-	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.CustomDomain, &ret.DBPath, &ret.PlanID, &ret.FreelancerSeatCount, &ret.Active, &ret.CreatedAt, &ret.UpdatedAt)
+	err := row.Scan(&ret.ID, &ret.Name, &ret.Subdomain, &ret.CustomDomain, &ret.DBPath, &ret.PlanID, &ret.FreelancerSeatCount, &ret.StaffSeatCount, &ret.Active, &ret.CreatedAt, &ret.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
