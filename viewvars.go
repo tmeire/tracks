@@ -21,6 +21,15 @@ func ViewVars(ctx context.Context) map[string]any {
 	return nil
 }
 
+// ViewVar returns a single variable from the context, or nil if it's not present.
+func ViewVar(r *http.Request, key string) any {
+	vars := ViewVars(r.Context())
+	if vars == nil {
+		return nil
+	}
+	return vars[key]
+}
+
 // AddViewVar ensures the request has an initialized view vars map and adds or
 // overwrites the provided key with the given value. It returns a new request
 // instance that carries the updated context, so it should be used for subsequent
