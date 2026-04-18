@@ -47,14 +47,12 @@ func UseCentralDB(ctx context.Context) context.Context {
 type Schema struct {
 	Tenants   *database.Repository[*Schema, *Tenant]
 	UserRoles *database.Repository[*Schema, *UserRole]
-	Profiles  *database.Repository[*Schema, *Profile]
 }
 
 func NewSchema() *Schema {
 	s := &Schema{}
 	s.Tenants = database.NewRepository[*Schema, *Tenant](s)
 	s.UserRoles = database.NewRepository[*Schema, *UserRole](s)
-	s.Profiles = database.NewRepository[*Schema, *Profile](s)
 
 	return s
 }

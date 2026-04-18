@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/tmeire/tracks/database/sqlite"
-	"log"
 )
 
 type Config struct {
@@ -22,7 +21,7 @@ func (c Config) Create(ctx context.Context) (Database, error) {
 
 	err = MigrateUp(ctx, db, CentralDatabase)
 	if err != nil {
-		log.Fatalf("failed to apply migrations: %v", err)
+		return nil, fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
 	return db, nil
