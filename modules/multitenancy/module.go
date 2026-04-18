@@ -60,28 +60,40 @@ type splitter struct {
 }
 
 func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	host := req.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+
 	subdomain := extractSubdomain(req.Host, s.baseDomain)
 	fmt.Printf("DEBUG: Splitter: Request %s %s (Host: %s, Subdomain: %s)\n", req.Method, req.URL.Path, req.Host, subdomain)
 
 	ctx := req.Context()
 	ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
 
-	if subdomain == "" {
-		if req.Referer() != "" {
-			r, err := url.Parse(req.Referer())
-			if err == nil && strings.HasSuffix(r.Host, req.Host) {
-				// Make sure we can redirect from the base domain to the subdomain
-				w.Header().Set("Access-Control-Allow-Origin", r.Scheme+"://"+r.Host)
-			}
-		}
+	var tenant *Tenant
+	var err error
 
-		s.root.ServeHTTP(w, req.WithContext(ctx))
-		return
+	if subdomain != "" {
+		tenant, err = s.tenantDB.GetTenantBySubdomain(ctx, subdomain)
+	} else {
+		// It might be a custom domain, or the root domain
+		tenant, err = s.tenantDB.GetTenantByCustomDomain(ctx, host)
 	}
 
-	// Find the tenant by subdomain, add the central db to the context
-	tenant, err := s.tenantDB.GetTenantBySubdomain(ctx, subdomain)
-	if err != nil {
+	if err != nil || tenant == nil {
+		if subdomain == "" {
+			if req.Referer() != "" {
+				r, err := url.Parse(req.Referer())
+				if err == nil && strings.HasSuffix(r.Host, req.Host) {
+					// Make sure we can redirect from the base domain to the subdomain
+					w.Header().Set("Access-Control-Allow-Origin", r.Scheme+"://"+r.Host)
+				}
+			}
+
+			s.root.ServeHTTP(w, req.WithContext(ctx))
+			return
+		}
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}

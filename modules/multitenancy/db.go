@@ -209,3 +209,19 @@ func (t *TenantRepository) GetTenantBySubdomain(ctx context.Context, subdomain s
 
 	return tenants[0], nil
 }
+
+// GetTenantByCustomDomain returns a tenant by its custom domain
+func (t *TenantRepository) GetTenantByCustomDomain(ctx context.Context, customDomain string) (*Tenant, error) {
+	ctx = database.WithDB(ctx, t.centralDB)
+
+	tenants, err := t.schema.Tenants.FindBy(ctx, map[string]any{"custom_domain": customDomain})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find tenant: %w", err)
+	}
+
+	if len(tenants) == 0 {
+		return nil, fmt.Errorf("tenant not found with custom domain: %s", customDomain)
+	}
+
+	return tenants[0], nil
+}
