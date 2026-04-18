@@ -127,6 +127,16 @@ func Created(data any) *Response {
 	}
 }
 
+// Redirect returns an ActionFunc that redirects to the specified destination.
+func Redirect(destination string) ActionFunc {
+	return func(r *http.Request) (any, error) {
+		return &Response{
+			StatusCode: http.StatusSeeOther,
+			Location:   destination,
+		}, nil
+	}
+}
+
 // ValidationError returns a validation error response.
 func ValidationError(err error) *Response {
 	if ve, ok := err.(interface {
