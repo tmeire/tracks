@@ -85,6 +85,12 @@ func newTemplates(baseDomain string) *Templates {
 			"safe": func(s string) template.HTML {
 				return template.HTML(s)
 			},
+			"split": func(s, sep string) []string {
+				return strings.Split(s, sep)
+			},
+			"trim": func(s string) string {
+				return strings.TrimSpace(s)
+			},
 			// These are placeholder implementations to make sure the templates can be loaded on boot.
 			// Every request will overwrite these funcs with methods that contain the request context to make
 			// sure it's able to access the requested language and view vars.
