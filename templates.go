@@ -82,6 +82,9 @@ func newTemplates(baseDomain string) *Templates {
 			"bps": func(b int) string {
 				return fmt.Sprintf("%.2f", float64(b)/100.0)
 			},
+			"safe": func(s string) template.HTML {
+				return template.HTML(s)
+			},
 			// These are placeholder implementations to make sure the templates can be loaded on boot.
 			// Every request will overwrite these funcs with methods that contain the request context to make
 			// sure it's able to access the requested language and view vars.

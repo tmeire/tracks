@@ -233,14 +233,24 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	}
 
 	tpl.Funcs(template.FuncMap{
-		"t": func(key string, args ...interface{}) string {
+		"t": func(key string, args ...interface{}) any {
+			var translation string
 			if len(args) == 0 {
-				return a.translator.Translate(lang, key)
+				translation = a.translator.Translate(lang, key)
+			} else {
+				translation = a.translator.TranslateWithParams(lang, key, args...)
 			}
-			return a.translator.TranslateWithParams(lang, key, args...)
+
+			if strings.HasSuffix(translation, " [SafeHTML]") {
+				return template.HTML(strings.TrimSuffix(translation, " [SafeHTML]"))
+			}
+			return translation
 		},
 		"v": func(key string) any {
 			return vars[key]
+		},
+		"safe": func(s string) template.HTML {
+			return template.HTML(s)
 		},
 		"csrf_token": func() string {
 			return CSRFTokenFromContext(r)
