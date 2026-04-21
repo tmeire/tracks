@@ -113,6 +113,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	req = tracks.AddViewVar(req, "tenant", tenant)
 	req = tracks.AddViewVar(req, "Subdomain", subdomain)
+	ctx = req.Context()
 
 	// Get a database and add it to the context
 	db, err := s.tenantDB.GetTenantDB(ctx, tenant.ID)

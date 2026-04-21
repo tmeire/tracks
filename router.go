@@ -214,6 +214,11 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 }
 
 func (r *router) Clone() Router {
+	var templates *Templates
+	if r.templates != nil {
+		templates = r.templates.Clone()
+	}
+
 	return &router{
 		parent:            r,
 		config:            r.config,
@@ -225,7 +230,7 @@ func (r *router) Clone() Router {
 		requestMiddlewares: &middlewares{
 			l: r.requestMiddlewares.l,
 		},
-		templates:  r.templates,
+		templates:  templates,
 		translator: r.translator,
 	}
 }

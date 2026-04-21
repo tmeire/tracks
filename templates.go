@@ -100,6 +100,19 @@ func newTemplates(baseDomain string) *Templates {
 	}
 }
 
+func (t *Templates) Clone() *Templates {
+	newFns := make(template.FuncMap, len(t.fns))
+	for k, v := range t.fns {
+		newFns[k] = v
+	}
+
+	return &Templates{
+		fns:     newFns,
+		basedir: t.basedir,
+		layouts: make(map[string]*template.Template),
+	}
+}
+
 // Func adds a new function to templates that are loaded after this call
 func (t *Templates) Func(name string, fn any) {
 	t.fns[name] = fn
