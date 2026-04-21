@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -52,8 +53,12 @@ func Middleware(domain string, store Store) func(next http.Handler) (http.Handle
 	}
 
 	cookieDomain := domain
-	if domain != "localhost" && !net.ParseIP(domain).To4().Equal(net.IPv4(127, 0, 0, 1)) {
-		cookieDomain = "." + domain
+	if domain != "localhost" && !strings.Contains(domain, ":") && !net.ParseIP(domain).To4().Equal(net.IPv4(127, 0, 0, 1)) {
+		// Use leading dot for domain cookies to ensure they are sent to subdomains
+		// but only if it's not localhost or an IP
+		if strings.Contains(domain, ".") {
+			cookieDomain = "." + domain
+		}
 	}
 
 	return func(next http.Handler) (http.Handler, error) {

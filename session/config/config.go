@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/session"
 	sessiondb "github.com/tmeire/tracks/session/db"
 	"github.com/tmeire/tracks/session/inmemory"
@@ -17,8 +18,8 @@ type Config struct {
 	} `json:"store"`
 }
 
-func (c Config) Middleware(ctx context.Context, domain string) (func(handler http.Handler) (http.Handler, error), error) {
-	store, err := c.store(ctx)
+func (c Config) Middleware(ctx context.Context, domain string, db database.Database) (func(handler http.Handler) (http.Handler, error), error) {
+	store, err := c.store(ctx, db)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func (c Config) Middleware(ctx context.Context, domain string) (func(handler htt
 	return session.Middleware(domain, store), nil
 }
 
-func (c Config) store(ctx context.Context) (session.Store, error) {
+func (c Config) store(ctx context.Context, db database.Database) (session.Store, error) {
 	switch c.Store.Type {
 	case "db":
 		var dbConfig sessiondb.Config
@@ -35,6 +36,9 @@ func (c Config) store(ctx context.Context) (session.Store, error) {
 			return nil, fmt.Errorf("failed to unmarshal session db config: %w", err)
 		}
 
+		if db != nil {
+			return dbConfig.CreateWithDB(ctx, db)
+		}
 		return dbConfig.Create(ctx)
 	case "inmemory":
 		return inmemory.NewStore(), nil

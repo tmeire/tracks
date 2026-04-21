@@ -16,6 +16,10 @@ func (c Config) Create(ctx context.Context) (*Store, error) {
 		return nil, err
 	}
 
+	return c.CreateWithDB(ctx, db)
+}
+
+func (c Config) CreateWithDB(ctx context.Context, db database.Database) (*Store, error) {
 	store, err := NewStore(ctx, db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session store: %w", err)

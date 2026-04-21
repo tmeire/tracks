@@ -204,7 +204,7 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 	})
 
 	// Set up sessions for all the domains
-	sessionMW, err := conf.Sessions.Middleware(ctx, conf.BaseDomain)
+	sessionMW, err := conf.Sessions.Middleware(ctx, conf.BaseDomain, db)
 	if err != nil {
 		log.Printf("Failed to create session middleware: %v", err)
 		return errRouter{err: err}

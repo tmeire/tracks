@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.0.46] - 2026-04-21
+### Fixed
+- **Critical:** Fixed a session race condition by ensuring the session store and the main application share the same database connection pool. This guarantees immediate visibility of session updates (like login) across subsequent requests.
+- Further refined cookie domain normalization to improve cross-browser compatibility.
+
 ## [v0.0.45] - 2026-04-21
 ### Fixed
 - Critical session reliability in production:
