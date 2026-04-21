@@ -41,7 +41,11 @@ func CentralDBFromContext(ctx context.Context) database.Database {
 
 // UseCentralDB returns a context that uses the central database for queries
 func UseCentralDB(ctx context.Context) context.Context {
-	return database.WithDB(ctx, CentralDBFromContext(ctx))
+	db := CentralDBFromContext(ctx)
+	if db == nil {
+		return ctx
+	}
+	return database.WithDB(ctx, db)
 }
 
 type Schema struct {

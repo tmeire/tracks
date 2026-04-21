@@ -58,6 +58,8 @@ func TestSplitter_ViewVars(t *testing.T) {
 		
 		assert.NotNil(t, vTenant, "tenant ViewVar should be set")
 		assert.Equal(t, "test", vSubdomain, "Subdomain ViewVar should be set to 'test'")
+
+		assert.NotNil(t, CentralDBFromContext(r.Context()), "CentralDB should be in the context")
 		
 		if ten, ok := vTenant.(*Tenant); ok {
 			assert.Equal(t, tenant.ID, ten.ID)

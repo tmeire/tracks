@@ -70,6 +70,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	ctx := req.Context()
 	ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
+	req = req.WithContext(ctx)
 
 	var tenant *Tenant
 	var err error

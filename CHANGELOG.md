@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.0.47] - 2026-04-21
+### Fixed
+- **Critical:** Fixed a context-loss bug in the multitenancy `splitter` middleware. The central database connection was being dropped when updating view variables, leading to nil-pointer panics in role-based authorization checks.
+- Hardened `UseCentralDB` to prevent overwriting the current database connection if the central database is not available in the context.
+
 ## [v0.0.46] - 2026-04-21
 ### Fixed
 - **Critical:** Fixed a session race condition by ensuring the session store and the main application share the same database connection pool. This guarantees immediate visibility of session updates (like login) across subsequent requests.
