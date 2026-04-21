@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.44] - 2026-04-21
+### Added
+- Comprehensive `slog` logging for session load, save, and database persistence failures. This provides better diagnostics for production environments.
+
 ## [v0.0.43] - 2026-04-21
 ### Fixed
 - Resolved circular dependency between `tracks` and `tracks/session` by moving `IsSecure` to the `session` package.

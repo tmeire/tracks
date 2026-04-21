@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"embed"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
@@ -95,6 +96,7 @@ func (s *Store) update(ctx context.Context, d *sessionData) error {
 	// Update in database
 	err = s.repository.Update(ctx, model)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to update session in database", "session_id", d.Id, "error", err)
 		return err
 	}
 
@@ -124,10 +126,7 @@ func (s *Store) Create(ctx context.Context) session.Session {
 	// Save to database
 	_, err := s.repository.Create(ctx, model)
 	if err != nil {
-		// Log the error but continue with in-memory session
-		// This ensures the application doesn't break if the database is unavailable
-		// TODO: Add proper logging
-		fmt.Println("Error creating session in database:", err)
+		slog.ErrorContext(ctx, "Failed to create session in database", "session_id", id, "error", err)
 	}
 
 	return &sessionData{
@@ -150,6 +149,7 @@ func (s *Store) invalidate(ctx context.Context, d *sessionData) {
 	}
 	err := s.repository.Delete(ctx, model)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to delete session from database", "session_id", d.Id, "error", err)
 		span := trace.SpanFromContext(ctx)
 		span.RecordError(err)
 	}
@@ -171,6 +171,7 @@ func (s *Store) invalidate(ctx context.Context, d *sessionData) {
 
 	_, err = s.repository.Create(ctx, newModel)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to create new session in database after invalidation", "session_id", d.Id, "error", err)
 		span := trace.SpanFromContext(ctx)
 		span.RecordError(err)
 	}

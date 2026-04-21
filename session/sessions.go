@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
 
@@ -143,6 +144,7 @@ func (w *sessionResponseWriter) save() {
 
 	err := w.session.Save(w.ctx)
 	if err != nil {
+		slog.ErrorContext(w.ctx, "Failed to save session", "session_id", w.session.ID(), "error", err)
 		span := trace.SpanFromContext(w.ctx)
 		span.RecordError(err)
 	}
@@ -192,6 +194,7 @@ func (m *middleware) load(span trace.Span, w http.ResponseWriter, r *http.Reques
 		if ok {
 			return session
 		}
+		slog.WarnContext(r.Context(), "Session cookie present but session not found in store", "session_id", cookie.Value)
 		span.AddEvent("unknown-session")
 	}
 	span.AddEvent("no-session")
