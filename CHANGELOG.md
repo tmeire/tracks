@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.50] - 2026-04-22
+### Fixed
+- Router: Cloned routers no longer inherit global middlewares by default. This fixes a critical bug where tenant-specific database connections were being overwritten by the central database connection from the main router during subdomain requests.
+
 ## [v0.0.49] - 2026-04-22
 ### Added
 - Router: Added `SkipDefaultMiddlewares()` to the `Router` interface to allow sub-routers (clones) to opt-out of inherited global middlewares.

@@ -233,23 +233,16 @@ func (r *router) Clone() Router {
 		requestMiddlewares: &middlewares{
 			l: r.requestMiddlewares.l,
 		},
+		isClone:      true,
 		templates:    templates,
 		translator:   r.translator,
 		shutdownOtel: r.shutdownOtel,
-	}
-
-	// Copy global middlewares
-	if r.globalMiddlewares != nil {
-		rn.globalMiddlewares.l = make([]Middleware, len(r.globalMiddlewares.l))
-		copy(rn.globalMiddlewares.l, r.globalMiddlewares.l)
 	}
 
 	return rn
 }
 
 func (r *router) SkipDefaultMiddlewares() Router {
-	r.isClone = true
-	r.globalMiddlewares = &middlewares{}
 	return r
 }
 
