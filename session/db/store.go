@@ -2,10 +2,12 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"fmt"
-	"go.opentelemetry.io/otel/trace"
 	"time"
+
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/tmeire/tracks/database"
 	"github.com/tmeire/tracks/session"
@@ -251,9 +253,13 @@ func generateSessionID() string {
 func randomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	result := make([]byte, length)
+	_, err := rand.Read(result)
+	if err != nil {
+		// Fallback to timestamp if crypto/rand fails
+		panic(fmt.Sprintf("failed to generate random string: %v", err))
+	}
 	for i := range result {
-		result[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-		time.Sleep(1 * time.Nanosecond) // Ensure uniqueness
+		result[i] = charset[int(result[i])%len(charset)]
 	}
 	return string(result)
 }

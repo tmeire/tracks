@@ -219,7 +219,7 @@ func (r *router) Clone() Router {
 		templates = r.templates.Clone()
 	}
 
-	return &router{
+	rn := &router{
 		parent:            r,
 		config:            r.config,
 		port:              r.port,
@@ -230,9 +230,18 @@ func (r *router) Clone() Router {
 		requestMiddlewares: &middlewares{
 			l: r.requestMiddlewares.l,
 		},
-		templates:  templates,
-		translator: r.translator,
+		templates:    templates,
+		translator:   r.translator,
+		shutdownOtel: r.shutdownOtel,
 	}
+
+	// Copy global middlewares
+	if r.globalMiddlewares != nil {
+		rn.globalMiddlewares.l = make([]Middleware, len(r.globalMiddlewares.l))
+		copy(rn.globalMiddlewares.l, r.globalMiddlewares.l)
+	}
+
+	return rn
 }
 
 // Secure returns true of all the links on the site should use HTTPS

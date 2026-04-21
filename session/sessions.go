@@ -103,7 +103,58 @@ type middleware struct {
 	next   http.Handler
 }
 
+type sessionResponseWriter struct {
+	http.ResponseWriter
+	session    Session
+	initialID  string
+	domain     string
+	ctx        context.Context
+	secure     bool
+	saved      bool
+}
+
+func (w *sessionResponseWriter) WriteHeader(code int) {
+	if !w.saved {
+		w.save()
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *sessionResponseWriter) Write(b []byte) (int, error) {
+	if !w.saved {
+		w.save()
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *sessionResponseWriter) save() {
+	if w.session.ID() != w.initialID {
+		// Session ID changed (e.g. invalidated), set a new cookie
+		http.SetCookie(w.ResponseWriter, &http.Cookie{
+			Name:     "sessions",
+			Value:    w.session.ID(),
+			Domain:   w.domain,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   w.secure,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+
+	err := w.session.Save(w.ctx)
+	if err != nil {
+		span := trace.SpanFromContext(w.ctx)
+		span.RecordError(err)
+	}
+	w.saved = true
+}
+
 func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if FromRequest(r) != nil {
+		m.next.ServeHTTP(w, r)
+		return
+	}
+
 	ctx, span := otel.GetTracerProvider().Tracer("tracks").Start(r.Context(), "session")
 	defer span.End()
 
@@ -117,11 +168,19 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	session.Put("ip", r.RemoteAddr)
 	session.Put("user_agent", r.UserAgent())
 
-	m.next.ServeHTTP(w, r)
+	sw := &sessionResponseWriter{
+		ResponseWriter: w,
+		session:        session,
+		initialID:      session.ID(),
+		domain:         m.domain,
+		ctx:            ctx,
+		secure:         r.TLS != nil,
+	}
 
-	err := session.Save(ctx)
-	if err != nil {
-		panic(err)
+	m.next.ServeHTTP(sw, r)
+
+	if !sw.saved {
+		sw.save()
 	}
 }
 

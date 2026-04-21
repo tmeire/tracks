@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.0.41] - 2026-04-21
+### Fixed
+- Session management on subdomains: ensured global middlewares are correctly copied during router cloning.
+- Session persistence reliability: implemented a `ResponseWriter` wrapper to save sessions before headers or data are sent, preventing race conditions.
+- Session state synchronization: added logic to issue new session cookies if a session ID changes (e.g., during invalidation/login).
+### Security
+- Replaced insecure `randomString` implementation with a cryptographically secure one using `crypto/rand`.
+### Performance
+- Optimized session middleware to avoid redundant execution if a session is already present in the request context.
+
 ## [v0.0.26] - 2026-02-17
 ### Added
 - Plug-and-play mail driver registry.
