@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.0.45] - 2026-04-21
+### Fixed
+- Critical session reliability in production:
+    - Added thread-safe `sync.RWMutex` to `sessionData` to prevent data races during database updates.
+    - Normalized cookie domain handling (explicitly avoiding leading dots for `localhost`).
+    - Forced more aggressive cookie synchronization by always setting the cookie in the `load` phase.
+    - Improved data consistency by safely cloning session state under lock before database persistence.
+
 ## [v0.0.44] - 2026-04-21
 ### Added
 - Comprehensive `slog` logging for session load, save, and database persistence failures. This provides better diagnostics for production environments.

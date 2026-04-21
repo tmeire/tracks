@@ -51,9 +51,14 @@ func Middleware(domain string, store Store) func(next http.Handler) (http.Handle
 		domain = host
 	}
 
+	cookieDomain := domain
+	if domain != "localhost" && !net.ParseIP(domain).To4().Equal(net.IPv4(127, 0, 0, 1)) {
+		cookieDomain = "." + domain
+	}
+
 	return func(next http.Handler) (http.Handler, error) {
 		return &middleware{
-			domain: "." + domain,
+			domain: cookieDomain,
 			store:  store,
 			next:   next,
 		}, nil
@@ -187,24 +192,29 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *middleware) load(span trace.Span, w http.ResponseWriter, r *http.Request) Session {
+	var sess Session
 	cookie, err := r.Cookie("sessions")
 	if err == nil {
 		span.SetAttributes(attribute.String("sessions.id", cookie.Value))
 		session, ok := m.store.Load(r.Context(), cookie.Value)
 		if ok {
-			return session
+			sess = session
+		} else {
+			slog.WarnContext(r.Context(), "Session cookie present but session not found in store", "session_id", cookie.Value)
+			span.AddEvent("unknown-session")
 		}
-		slog.WarnContext(r.Context(), "Session cookie present but session not found in store", "session_id", cookie.Value)
-		span.AddEvent("unknown-session")
+	} else {
+		span.AddEvent("no-session")
 	}
-	span.AddEvent("no-session")
 
-	session := m.store.Create(r.Context())
-	span.SetAttributes(attribute.String("sessions.id", session.ID()))
+	if sess == nil {
+		sess = m.store.Create(r.Context())
+		span.SetAttributes(attribute.String("sessions.id", sess.ID()))
+	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "sessions",
-		Value:    session.ID(),
+		Value:    sess.ID(),
 		Domain:   m.domain,
 		Path:     "/",
 		HttpOnly: true,
@@ -212,7 +222,7 @@ func (m *middleware) load(span trace.Span, w http.ResponseWriter, r *http.Reques
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	return session
+	return sess
 }
 
 // IsSecure returns true if the request is served over HTTPS or if it's behind a proxy that terminates TLS.

@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
@@ -68,6 +69,7 @@ func (s *Store) Load(ctx context.Context, id string) (session.Session, bool) {
 		Data:      data,
 		FlashOld:  flash,
 		FlashNew:  make(map[string]string),
+		mu:        sync.RWMutex{},
 	}
 	return sess, true
 }
@@ -79,14 +81,25 @@ func (s *Store) update(ctx context.Context, d *sessionData) error {
 		UpdatedAt: time.Now(),
 	}
 
+	d.mu.RLock()
+	dataCopy := make(map[string]string, len(d.Data))
+	for k, v := range d.Data {
+		dataCopy[k] = v
+	}
+	flashCopy := make(map[string]string, len(d.FlashNew))
+	for k, v := range d.FlashNew {
+		flashCopy[k] = v
+	}
+	d.mu.RUnlock()
+
 	// Marshal the data
-	err := model.MarshalData(d.Data)
+	err := model.MarshalData(dataCopy)
 	if err != nil {
 		return err
 	}
 
 	// Marshal the data
-	err = model.MarshalFlash(d.FlashNew)
+	err = model.MarshalFlash(flashCopy)
 	if err != nil {
 		return err
 	}
@@ -101,8 +114,10 @@ func (s *Store) update(ctx context.Context, d *sessionData) error {
 	}
 
 	// Move flash messages
+	d.mu.Lock()
 	d.FlashOld = d.FlashNew
 	d.FlashNew = make(map[string]string)
+	d.mu.Unlock()
 	return nil
 }
 
@@ -137,13 +152,14 @@ func (s *Store) Create(ctx context.Context) session.Session {
 		Data:      make(map[string]string),
 		FlashOld:  make(map[string]string),
 		FlashNew:  make(map[string]string),
+		mu:        sync.RWMutex{},
 	}
 }
 
 func (s *Store) invalidate(ctx context.Context, d *sessionData) {
 	ctx = database.WithDB(ctx, s.database)
 
-	// DeleteFunc from database
+	// Delete from database
 	model := &SessionModel{
 		ID: d.Id,
 	}
@@ -155,16 +171,19 @@ func (s *Store) invalidate(ctx context.Context, d *sessionData) {
 	}
 
 	// Generate a new session ID
+	d.mu.Lock()
 	d.Id = generateSessionID()
 	d.Data = make(map[string]string)
 	d.FlashOld = make(map[string]string)
 	d.FlashNew = make(map[string]string)
+	d.mu.Unlock()
 
 	// Create a new session in the database
 	now := time.Now()
 	newModel := &SessionModel{
 		ID:        d.Id,
 		Data:      "{}",
+		Flash:     "{}",
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -177,6 +196,7 @@ func (s *Store) invalidate(ctx context.Context, d *sessionData) {
 	}
 }
 
+
 // sessionData implements the session.Session interface
 type sessionData struct {
 	store     *Store
@@ -186,6 +206,7 @@ type sessionData struct {
 	Data      map[string]string
 	FlashOld  map[string]string
 	FlashNew  map[string]string
+	mu        sync.RWMutex
 }
 
 func (s *sessionData) Authenticate(userId string) {
@@ -193,28 +214,38 @@ func (s *sessionData) Authenticate(userId string) {
 }
 
 func (s *sessionData) Authenticated() (string, bool) {
-	v, ok := s.Get("user_id")
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	v, ok := s.Data["user_id"]
 	return v, ok
 }
 
 func (s *sessionData) IsAuthenticated() bool {
-	_, ok := s.Get("user_id")
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.Data["user_id"]
 	return ok
 }
 
 // Get retrieves a value from the session by key
 func (s *sessionData) Get(key string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	val, ok := s.Data[key]
 	return val, ok
 }
 
 // Put stores a value in the session by key
 func (s *sessionData) Put(key string, value string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.Data[key] = value
 }
 
 // Forget removes a key from the session
 func (s *sessionData) Forget(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.Data, key)
 }
 
@@ -225,12 +256,16 @@ func (s *sessionData) ID() string {
 
 // Flash adds a flash message to the session
 func (s *sessionData) Flash(key, value string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.FlashOld[key] = value
 	s.FlashNew[key] = value
 }
 
 // FlashMessages returns all flash messages from the previous request
 func (s *sessionData) FlashMessages() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.FlashOld
 }
 
