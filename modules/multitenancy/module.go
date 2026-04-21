@@ -27,7 +27,8 @@ func Register(r tracks.Router) tracks.Router {
 	database.MigrateUp(context.Background(), r.Database(), database.CentralDatabase)
 	goose.SetBaseFS(nil)
 
-	rn := r.Clone().Views("./views/tenants")
+	rn := r.Clone().Views("./views/tenants").SkipDefaultMiddlewares()
+
 
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
 		tenantDB := NewTenantRepositoryWithMigrations(r.Database(), filepath.Join(".", "data"), filepath.Join(".", "migrations"))

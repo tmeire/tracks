@@ -64,6 +64,7 @@ type Router interface {
 	DeleteFunc(path string, controller, action string, r ActionFunc, mws ...MiddlewareBuilder) Router
 	Resource(r Resource, mws ...MiddlewareBuilder) Router
 	ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router
+	SkipDefaultMiddlewares() Router
 	Templates() *Templates
 	Config() Config
 	Handler() (http.Handler, error)
@@ -88,6 +89,7 @@ type router struct {
 	mux                *http.ServeMux
 	globalMiddlewares  *middlewares
 	requestMiddlewares *middlewares
+	isClone            bool
 	templates          *Templates
 	translator         *i18n.Translator
 	shutdownOtel       otel.Shutdown
@@ -245,6 +247,12 @@ func (r *router) Clone() Router {
 	return rn
 }
 
+func (r *router) SkipDefaultMiddlewares() Router {
+	r.isClone = true
+	r.globalMiddlewares = &middlewares{}
+	return r
+}
+
 // Secure returns true of all the links on the site should use HTTPS
 func (r *router) Secure() bool {
 	if r.config.Secure {
@@ -387,6 +395,11 @@ func (r *router) Module(m Module) Router {
 func (r *router) GlobalMiddleware(m Middleware) Router {
 	r.globalMiddlewares.Apply(m)
 	return r
+}
+
+func (r *router) IsMiddlewareRegistered(m Middleware) bool {
+	// This might need more logic but for now let's just use it
+	return false
 }
 
 // DomainFromContext returns the full domain stored in the context, or an empty string if not found.
@@ -997,6 +1010,10 @@ func (e errRouter) Resource(r Resource, mws ...MiddlewareBuilder) Router {
 }
 
 func (e errRouter) ResourceAtPath(path string, r Resource, mws ...MiddlewareBuilder) Router {
+	return e
+}
+
+func (e errRouter) SkipDefaultMiddlewares() Router {
 	return e
 }
 

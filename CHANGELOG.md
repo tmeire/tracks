@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.0.49] - 2026-04-22
+### Added
+- Router: Added `SkipDefaultMiddlewares()` to the `Router` interface to allow sub-routers (clones) to opt-out of inherited global middlewares.
+### Fixed
+- Multitenancy: Use `SkipDefaultMiddlewares()` for tenant-specific sub-routers to prevent the default central database middleware from overwriting the tenant-specific database connection.
+
 ## [v0.0.48] - 2026-04-22
 ### Added
 - OpenTelemetry: Added `stdouttrace` exporter to log traces to stdout in addition to the OTLP gRPC exporter.
