@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.48] - 2026-04-22
+### Added
+- OpenTelemetry: Added `stdouttrace` exporter to log traces to stdout in addition to the OTLP gRPC exporter.
+
 ## [v0.0.47] - 2026-04-21
 ### Fixed
 - **Critical:** Fixed a context-loss bug in the multitenancy `splitter` middleware. The central database connection was being dropped when updating view variables, leading to nil-pointer panics in role-based authorization checks.

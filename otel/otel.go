@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -83,8 +84,14 @@ func traces(ctx context.Context, rs *resource.Resource) (*trace.TracerProvider, 
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
+	stdout, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create trace stdout exporter: %w", err)
+	}
+
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exp),
+		trace.WithBatcher(stdout),
 		trace.WithResource(rs),
 	)
 
