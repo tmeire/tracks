@@ -174,7 +174,7 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		initialID:      session.ID(),
 		domain:         m.domain,
 		ctx:            ctx,
-		secure:         tracks.IsSecure(r),
+		secure:         IsSecure(r),
 	}
 
 	m.next.ServeHTTP(sw, r)
@@ -205,9 +205,20 @@ func (m *middleware) load(span trace.Span, w http.ResponseWriter, r *http.Reques
 		Domain:   m.domain,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   tracks.IsSecure(r),
+		Secure:   IsSecure(r),
 		SameSite: http.SameSiteLaxMode,
 	})
 
 	return session
+}
+
+// IsSecure returns true if the request is served over HTTPS or if it's behind a proxy that terminates TLS.
+func IsSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if r.Header.Get("X-Forwarded-Proto") == "https" {
+		return true
+	}
+	return false
 }

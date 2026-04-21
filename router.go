@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -391,16 +392,6 @@ func (r *router) GlobalMiddleware(m Middleware) Router {
 // DomainFromContext returns the full domain stored in the context, or an empty string if not found.
 func DomainFromContext(ctx context.Context) string {
 	return database.DomainFromContext(ctx)
-}
-
-func IsSecure(r *http.Request) bool {
-	if r.TLS != nil {
-		return true
-	}
-	if r.Header.Get("X-Forwarded-Proto") == "https" {
-		return true
-	}
-	return false
 }
 
 func (r *router) DomainMiddleware() Middleware {

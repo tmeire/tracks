@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.0.43] - 2026-04-21
+### Fixed
+- Resolved circular dependency between `tracks` and `tracks/session` by moving `IsSecure` to the `session` package.
+- Restored missing `net` import in `router.go`.
+
 ## [v0.0.42] - 2026-04-21
 ### Added
 - `Config.Secure` flag to explicitly enable HTTPS across the application.
