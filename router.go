@@ -246,7 +246,10 @@ func (r *router) Clone() Router {
 
 // Secure returns true of all the links on the site should use HTTPS
 func (r *router) Secure() bool {
-	// TODO: if all traffic is served over https; for now the same as serveTLS, but this could be different if TLS is terminated by a proxy
+	if r.config.Secure {
+		return true
+	}
+	// TODO: we could also check a context variable if we detect HTTPS from a middleware
 	return false
 }
 
@@ -385,8 +388,41 @@ func (r *router) GlobalMiddleware(m Middleware) Router {
 	return r
 }
 
+// DomainFromContext returns the full domain stored in the context, or an empty string if not found.
+func DomainFromContext(ctx context.Context) string {
+	return database.DomainFromContext(ctx)
+}
+
+func IsSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if r.Header.Get("X-Forwarded-Proto") == "https" {
+		return true
+	}
+	return false
+}
+
 func (r *router) DomainMiddleware() Middleware {
-	return DomainMiddleware()
+	return func(h http.Handler) (http.Handler, error) {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			host := r.Host
+			domain, _, err := net.SplitHostPort(host)
+			if err != nil {
+				// If SplitHostPort fails, it might be because there's no port.
+				domain = host
+			}
+
+			// Store domain in context using database helper for cross-package accessibility
+			ctx := database.WithDomain(r.Context(), domain)
+			r = r.WithContext(ctx)
+
+			// Store domain in view variables for templates
+			r = AddViewVar(r, "Domain", domain)
+
+			h.ServeHTTP(w, r)
+		}), nil
+	}
 }
 
 func (r *router) DomainDatabase(config DomainDBConfig) Router {

@@ -14,6 +14,7 @@ type Config struct {
 	Version     string                     `json:"version"`
 	Port        int                        `json:"port"`
 	Development bool                       `json:"development"`
+	Secure      bool                       `json:"secure"`
 	BaseDomain  string                     `json:"base_domain"`
 	Domains     []string                   `json:"domains"`
 	Sessions    config.Config              `json:"sessions"`

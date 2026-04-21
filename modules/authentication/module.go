@@ -28,7 +28,7 @@ func RequireSystemRole(role string) func(tracks.Router) tracks.Middleware {
 				if !ok {
 					// Redirect to login if not authenticated
 					scheme := "http"
-					if r.TLS != nil {
+					if tracks.IsSecure(r) {
 						scheme = "https"
 					}
 					host := fmt.Sprintf("%s://%s", scheme, r.Host)
@@ -63,7 +63,7 @@ func authenticate(domain string, secure bool) tracks.Middleware {
 				accept := r.Header.Get("Accept")
 				if strings.Contains(accept, htmlMediaType) {
 					scheme := "http"
-					if secure {
+					if secure || tracks.IsSecure(r) {
 						scheme = "https"
 					}
 

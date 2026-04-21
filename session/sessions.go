@@ -174,7 +174,7 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		initialID:      session.ID(),
 		domain:         m.domain,
 		ctx:            ctx,
-		secure:         r.TLS != nil,
+		secure:         tracks.IsSecure(r),
 	}
 
 	m.next.ServeHTTP(sw, r)
@@ -205,7 +205,7 @@ func (m *middleware) load(span trace.Span, w http.ResponseWriter, r *http.Reques
 		Domain:   m.domain,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   tracks.IsSecure(r),
 		SameSite: http.SameSiteLaxMode,
 	})
 

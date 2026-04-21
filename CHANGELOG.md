@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.0.42] - 2026-04-21
+### Added
+- `Config.Secure` flag to explicitly enable HTTPS across the application.
+- Improved HTTPS detection: `tracks.IsSecure(r)` now respects the `X-Forwarded-Proto` header, fixing session issues behind reverse proxies.
+### Changed
+- Refactored `DomainMiddleware` and `DomainFromContext` into `tracks` core for better consistency.
+
 ## [v0.0.41] - 2026-04-21
 ### Fixed
 - Session management on subdomains: ensured global middlewares are correctly copied during router cloning.
