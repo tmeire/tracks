@@ -20,14 +20,40 @@ func (m *mockRouter) BaseDomain() string                                        
 func (m *mockRouter) Database() database.Database                                             { return nil }
 func (m *mockRouter) Module(mod tracks.Module) tracks.Router                                   { return mod(m) }
 func (m *mockRouter) GlobalMiddleware(mw tracks.Middleware) tracks.Router                      { return m }
+func (m *mockRouter) DomainMiddleware() tracks.Middleware                                      { return nil }
+func (m *mockRouter) DomainDatabase(config tracks.DomainDBConfig) tracks.Router                { return m }
+func (m *mockRouter) DomainScopedRepositories() tracks.Router                                  { return m }
 func (m *mockRouter) RequestMiddleware(mw tracks.Middleware) tracks.Router                     { return m }
-func (m *mockRouter) Func(name string, fn any) tracks.Router                                   { return m }
-func (m *mockRouter) Views(path string) tracks.Router                                          { return m }
-func (m *mockRouter) Page(path, view string) tracks.Router                                     { return m }
-func (m *mockRouter) Redirect(origin, destination string) tracks.Router                        { return m }
-func (m *mockRouter) Serve(a tracks.Action) tracks.Router                                      { return m }
-func (m *mockRouter) Controller(c tracks.Controller) tracks.Router                             { return m }
-func (m *mockRouter) ControllerAtPath(path string, c tracks.Controller) tracks.Router          { return m }
+func (m *mockRouter) Static(urlPath, dir string) tracks.Router                                 { return m }
+func (m *mockRouter) StaticWithConfig(urlPath, dir string, config tracks.StaticConfig) tracks.Router {
+	return m
+}
+func (m *mockRouter) Content(path, dir string, config tracks.ContentConfig) tracks.Router { return m }
+func (m *mockRouter) LogHostEntries() tracks.Router                                       { return m }
+func (m *mockRouter) LogHostEntriesWithMessage(message string) tracks.Router              { return m }
+func (m *mockRouter) HealthCheck(path string, config ...tracks.HealthConfig) tracks.Router { return m }
+func (m *mockRouter) Version(v string, config ...tracks.VersionConfig) tracks.Router      { return m }
+func (m *mockRouter) VersionFromHeader(header, value string, r tracks.Router) tracks.Router  { return m }
+func (m *mockRouter) VersionFromQuery(param, value string, r tracks.Router) tracks.Router   { return m }
+func (m *mockRouter) RateLimit(config tracks.RateLimitConfig) tracks.Router                { return m }
+func (m *mockRouter) WebSocket(path string, handler tracks.WebSocketHandler, mws ...tracks.MiddlewareBuilder) tracks.Router {
+	return m
+}
+func (m *mockRouter) CSRFProtection(config tracks.CSRFConfig) tracks.Router { return m }
+func (m *mockRouter) Cache() tracks.Cache                                   { return nil }
+func (m *mockRouter) WithCache(c tracks.Cache) tracks.Router                { return m }
+func (m *mockRouter) Queue() tracks.Queue                                   { return nil }
+func (m *mockRouter) Func(name string, fn any) tracks.Router                { return m }
+func (m *mockRouter) Views(path string) tracks.Router                       { return m }
+func (m *mockRouter) Page(path, view string) tracks.Router                  { return m }
+func (m *mockRouter) Redirect(origin, destination string) tracks.Router     { return m }
+func (m *mockRouter) Serve(a tracks.Action) tracks.Router                   { return m }
+func (m *mockRouter) Controller(c tracks.Controller, mws ...tracks.MiddlewareBuilder) tracks.Router {
+	return m
+}
+func (m *mockRouter) ControllerAtPath(path string, c tracks.Controller, mws ...tracks.MiddlewareBuilder) tracks.Router {
+	return m
+}
 func (m *mockRouter) Get(path, c, a string, rc tracks.ActionController, mws ...tracks.MiddlewareBuilder) tracks.Router {
 	return m
 }
@@ -50,7 +76,8 @@ func (m *mockRouter) Resource(r tracks.Resource, mws ...tracks.MiddlewareBuilder
 func (m *mockRouter) ResourceAtPath(path string, r tracks.Resource, mws ...tracks.MiddlewareBuilder) tracks.Router {
 	return m
 }
-func (m *mockRouter) Templates() *tracks.Templates { return nil }
+func (m *mockRouter) SkipDefaultMiddlewares() tracks.Router { return m }
+func (m *mockRouter) Templates() *tracks.Templates           { return nil }
 func (m *mockRouter) Config() tracks.Config       { return m.config }
 func (m *mockRouter) Handler() (http.Handler, error) { return nil, nil }
 func (m *mockRouter) Run(ctx context.Context) error  { return nil }

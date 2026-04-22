@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.51] - 2026-04-22
+### Fixed
+- Fixed compilation errors in `versionRouter` and `mockRouter` due to the missing `SkipDefaultMiddlewares()` method.
+
 ## [v0.0.50] - 2026-04-22
 ### Fixed
 - Router: Cloned routers no longer inherit global middlewares by default. This fixes a critical bug where tenant-specific database connections were being overwritten by the central database connection from the main router during subdomain requests.

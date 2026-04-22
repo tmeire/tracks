@@ -145,6 +145,10 @@ func (v *versionRouter) ResourceAtPath(path string, rs Resource, mws ...Middlewa
 	mws = append([]MiddlewareBuilder{v.versionMiddleware}, mws...)
 	return v.router.ResourceAtPath(v.prefix+path, rs, mws...)
 }
+func (v *versionRouter) SkipDefaultMiddlewares() Router {
+	v.router.SkipDefaultMiddlewares()
+	return v
+}
 func (v *versionRouter) Templates() *Templates { return v.router.Templates() }
 func (v *versionRouter) Config() Config { return v.router.Config() }
 func (v *versionRouter) Handler() (http.Handler, error) { return v.router.Handler() }
