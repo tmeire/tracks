@@ -2,6 +2,7 @@ package mail
 
 import (
 	"context"
+	"log"
 )
 
 // Attachment represents an email attachment
@@ -33,7 +34,11 @@ func (m *Message) DeliverNow(ctx context.Context) error {
 		// Fallback or error? For now, let's assume it should have been set
 		return nil
 	}
-	return m.driver.Send(ctx, m)
+	err := m.driver.Send(ctx, m)
+	if err != nil {
+		log.Printf("Failed to deliver email: %v", err)
+	}
+	return err
 }
 
 // DeliverLater sends the email asynchronously (currently using a goroutine)

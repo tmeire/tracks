@@ -16,7 +16,7 @@ var (
 func constructDriver(config tracks.Config) Driver {
 	confRaw, ok := config.Modules["mail"]
 	if !ok {
-		slog.Error("no mail configuration found")
+		slog.Error("no mail configuration found, using log driver")
 		return NewLogDriver()
 	}
 
@@ -27,6 +27,7 @@ func constructDriver(config tracks.Config) Driver {
 	}
 
 	defaultFrom = conf.Defaults.From
+	slog.Info("initializing mail driver", "method", conf.DeliveryMethod, "from", defaultFrom)
 
 	factory, ok := drivers[conf.DeliveryMethod]
 	if !ok {
@@ -38,6 +39,7 @@ func constructDriver(config tracks.Config) Driver {
 		slog.Error("failed to initialize mail driver", "method", conf.DeliveryMethod, "error", err)
 		return NewLogDriver()
 	}
+	slog.Info("mail driver initialized successfully", "method", conf.DeliveryMethod)
 	return d
 }
 
