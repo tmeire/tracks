@@ -22,6 +22,8 @@ var dummyFn = func(key string) template.HTML {
 	return template.HTML(key)
 }
 
+var iconCache = make(map[string]template.HTML)
+
 func newTemplates(baseDomain string) *Templates {
 	return &Templates{
 		basedir: "./views",
@@ -90,6 +92,66 @@ func newTemplates(baseDomain string) *Templates {
 			},
 			"trim": func(s string) string {
 				return strings.TrimSpace(s)
+			},
+			"icon": func(name string, class string) template.HTML {
+				// Phosphor folder structure: assets/icons/phosphor/{weight}/{name}-{weight}.svg
+				// Default weight is 'thin'.
+				weight := "thin"
+				iconName := name
+
+				// If the name contains a hyphen, check if the last part is a known weight
+				parts := strings.Split(name, "-")
+				if len(parts) > 1 {
+					lastPart := parts[len(parts)-1]
+					switch lastPart {
+					case "thin", "light", "regular", "bold", "fill", "duotone":
+						weight = lastPart
+					}
+				}
+
+				// Ensure iconName has the weight suffix if it's not 'regular' (or always for consistency)
+				fileName := iconName
+				if !strings.HasSuffix(iconName, "-"+weight) && weight != "regular" {
+					fileName = iconName + "-" + weight
+				}
+
+				if cached, ok := iconCache[weight+fileName+class]; ok {
+					return cached
+				}
+
+				path := filepath.Join("assets", "icons", "phosphor", weight, fileName+".svg")
+				content, err := os.ReadFile(path)
+				if err != nil {
+					// Fallback 1: Try without weight suffix
+					path = filepath.Join("assets", "icons", "phosphor", weight, iconName+".svg")
+					content, err = os.ReadFile(path)
+				}
+
+				if err != nil {
+					// Fallback 2: Maybe we are running from the root of the repo
+					path = filepath.Join("floral-crm", "assets", "icons", "phosphor", weight, fileName+".svg")
+					content, err = os.ReadFile(path)
+				}
+
+				if err != nil {
+					// Fallback 3: Try root of weight without suffix (from root)
+					path = filepath.Join("floral-crm", "assets", "icons", "phosphor", weight, iconName+".svg")
+					content, err = os.ReadFile(path)
+				}
+
+				if err != nil {
+					slog.Warn("icon not found", "name", name, "path", path, "error", err)
+					return template.HTML(fmt.Sprintf("<span>MISSING: %s</span>", path))
+				}
+
+				svg := string(content)
+				if class != "" {
+					svg = strings.Replace(svg, "<svg ", fmt.Sprintf(`<svg class="%s" `, class), 1)
+				}
+
+				res := template.HTML(fmt.Sprintf("<!-- icon: %s, path: %s, len: %d -->\n%s", name, path, len(content), svg))
+				iconCache[weight+fileName+class] = res
+				return res
 			},
 			// These are placeholder implementations to make sure the templates can be loaded on boot.
 			// Every request will overwrite these funcs with methods that contain the request context to make
