@@ -84,6 +84,11 @@ func (s *User) ValidatePassword(password string) bool {
 	return bcrypt.CompareHashAndPassword(pwEnc, []byte(password)) == nil
 }
 
+// HasPassword returns true if the user has a password set.
+func (s *User) HasPassword() bool {
+	return s.password != ""
+}
+
 // GenerateActivationToken generates a secure random token for user activation/password setup.
 func (s *User) GenerateActivationToken() string {
 	b := make([]byte, 32)

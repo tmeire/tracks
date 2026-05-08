@@ -21,7 +21,12 @@ type Config struct {
 	Database    database.Config            `json:"database"`
 	Cache       CacheConfig                `json:"cache"`
 	Jobs        JobsConfig                 `json:"jobs"`
+	Secrets     SecretsConfig              `json:"secrets"`
 	Modules     map[string]json.RawMessage `json:"modules"`
+}
+
+type SecretsConfig struct {
+	Signup string `json:"signup"`
 }
 
 type CacheConfig struct {

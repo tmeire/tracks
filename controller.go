@@ -23,6 +23,14 @@ func (bc *BaseController) Inject(router Router) {
 	bc.router = router
 }
 
+func (bc *BaseController) Router() Router {
+	return bc.router
+}
+
+func (bc *BaseController) Config() Config {
+	return bc.router.Config()
+}
+
 func (bc BaseController) Scheme() string {
 	if bc.router.Secure() {
 		return "https"
