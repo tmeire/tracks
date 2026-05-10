@@ -14,9 +14,10 @@ var (
 type contextKey string
 
 const (
-	tenantDBContextKey contextKey = "db"
-	domainContextKey   contextKey = "domain"
-	domainFilterKey    contextKey = "domain_filter"
+	tenantDBContextKey  contextKey = "db"
+	centralDBContextKey contextKey = "central_db"
+	domainContextKey    contextKey = "domain"
+	domainFilterKey     contextKey = "domain_filter"
 )
 
 func WithDB(ctx context.Context, db Database) context.Context {
@@ -25,6 +26,18 @@ func WithDB(ctx context.Context, db Database) context.Context {
 
 func FromContext(ctx context.Context) Database {
 	db, ok := ctx.Value(tenantDBContextKey).(Database)
+	if !ok {
+		return nil
+	}
+	return db
+}
+
+func WithCentralDB(ctx context.Context, db Database) context.Context {
+	return context.WithValue(ctx, centralDBContextKey, db)
+}
+
+func CentralDBFromContext(ctx context.Context) Database {
+	db, ok := ctx.Value(centralDBContextKey).(Database)
 	if !ok {
 		return nil
 	}

@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.0.52] - 2026-05-09
+### Fixed
+- Authentication: Fixed user activation and password setup flow on subdomains by ensuring the central database is used instead of the tenant database.
+### Changed
+- Database: Moved `WithCentralDB` and `CentralDBFromContext` to the core `database` package to allow cross-module access without circular dependencies.
+- Session: Added `WithContext` to allow setting a session in the context, primarily for testing purposes.
+
 ## [v0.0.51] - 2026-04-22
 ### Fixed
 - Fixed compilation errors in `versionRouter` and `mockRouter` due to the missing `SkipDefaultMiddlewares()` method.

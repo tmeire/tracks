@@ -156,8 +156,10 @@ func newTemplates(baseDomain string) *Templates {
 			// These are placeholder implementations to make sure the templates can be loaded on boot.
 			// Every request will overwrite these funcs with methods that contain the request context to make
 			// sure it's able to access the requested language and view vars.
-			"t": dummyFn,
-			"v": dummyFn,
+			"t":          dummyFn,
+			"v":          dummyFn,
+			"csrf_token": func() string { return "" },
+			"csrf_field": func() template.HTML { return "" },
 		},
 	}
 }

@@ -81,8 +81,8 @@ func FromRequest(r *http.Request) Session {
 }
 
 // FromContext retrieves the sessions from the context.
-func FromContext(r context.Context) Session {
-	s := r.Value(sessionKey)
+func FromContext(ctx context.Context) Session {
+	s := ctx.Value(sessionKey)
 	if s == nil {
 		return nil
 	}
@@ -91,6 +91,11 @@ func FromContext(r context.Context) Session {
 		return session
 	}
 	return nil
+}
+
+// WithContext returns a new context with the session.
+func WithContext(ctx context.Context, s Session) context.Context {
+	return context.WithValue(ctx, sessionKey, s)
 }
 
 func Flash(r *http.Request, key, value string) {

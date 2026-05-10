@@ -115,7 +115,8 @@ func (u *UsersResource) Index(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	return u.schema.users.FindByID(r.Context(), userId)
+	ctx := u.useCentralDB(r.Context())
+	return u.schema.users.FindByID(ctx, userId)
 }
 
 func (u *UsersResource) New(r *http.Request) (any, error) {
@@ -164,7 +165,8 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 		}, nil
 	}
 
-	user, err := u.schema.CreateNewUser(r.Context(), name, email, password)
+	ctx := u.useCentralDB(r.Context())
+	user, err := u.schema.CreateNewUser(ctx, name, email, password)
 	if err != nil {
 		session.Flash(r, "alert", err.Error())
 		return &tracks.Response{
@@ -174,7 +176,7 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 	}
 
 	// Trigger post-user-creation hooks
-	executePostUserCreationHooks(r.Context(), user)
+	executePostUserCreationHooks(ctx, user)
 
 	// Set a flash message
 	session.Flash(r, "notice", "Account created successfully")
@@ -191,13 +193,21 @@ func (u *UsersResource) Create(r *http.Request) (any, error) {
 	}, nil
 }
 
+func (u *UsersResource) useCentralDB(ctx context.Context) context.Context {
+	if db := database.CentralDBFromContext(ctx); db != nil {
+		return database.WithDB(ctx, db)
+	}
+	return ctx
+}
+
 func (u *UsersResource) Activate(r *http.Request) (any, error) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
 		return &tracks.Response{StatusCode: http.StatusSeeOther, Location: "/"}, nil
 	}
 
-	users, err := u.schema.users.FindBy(r.Context(), map[string]any{"activation_token": token})
+	ctx := u.useCentralDB(r.Context())
+	users, err := u.schema.users.FindBy(ctx, map[string]any{"activation_token": token})
 	if err != nil || len(users) == 0 {
 		session.Flash(r, "error", "Invalid or expired activation token")
 		return &tracks.Response{StatusCode: http.StatusSeeOther, Location: "/"}, nil
@@ -216,7 +226,8 @@ func (u *UsersResource) SetPasswordWithToken(r *http.Request) (any, error) {
 		return &tracks.Response{StatusCode: http.StatusUnprocessableEntity, Location: "/users/activate?token=" + token}, nil
 	}
 
-	users, err := u.schema.users.FindBy(r.Context(), map[string]any{"activation_token": token})
+	ctx := u.useCentralDB(r.Context())
+	users, err := u.schema.users.FindBy(ctx, map[string]any{"activation_token": token})
 	if err != nil || len(users) == 0 {
 		session.Flash(r, "error", "Invalid or expired activation token")
 		return &tracks.Response{StatusCode: http.StatusSeeOther, Location: "/"}, nil
@@ -228,7 +239,7 @@ func (u *UsersResource) SetPasswordWithToken(r *http.Request) (any, error) {
 	}
 	user.ClearActivationToken()
 
-	if err := u.schema.users.Update(r.Context(), user); err != nil {
+	if err := u.schema.users.Update(ctx, user); err != nil {
 		return nil, err
 	}
 
