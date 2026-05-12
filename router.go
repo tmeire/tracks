@@ -599,10 +599,20 @@ func (r *router) Serve(a Action) Router {
 }
 
 func (r *router) Controller(c Controller, mws ...MiddlewareBuilder) Router {
+	if nr, needsRouter := c.(interface {
+		Inject(r Router)
+	}); needsRouter {
+		nr.Inject(r)
+	}
 	return c.Register(r, "/", mws...)
 }
 
 func (r *router) ControllerAtPath(path string, c Controller, mws ...MiddlewareBuilder) Router {
+	if nr, needsRouter := c.(interface {
+		Inject(r Router)
+	}); needsRouter {
+		nr.Inject(r)
+	}
 	return c.Register(r, path, mws...)
 }
 
