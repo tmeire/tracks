@@ -227,28 +227,55 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 	}
 
 	// Find and load all partial templates into the layout
-	partials, err := filepath.Glob(filepath.Join(t.basedir, "*", "_*.gohtml"))
-	if err != nil {
-		return nil, err
+	// We walk both the basedir and the global layouts directory to support shared partials
+	searchDirs := []string{t.basedir}
+	if t.basedir == "./views/tenants" {
+		// Special case for multitenancy: also look in global layouts
+		searchDirs = append(searchDirs, "./views/layouts")
 	}
 
-	for _, partial := range partials {
-		filename := filepath.Base(partial)
+	for _, searchDir := range searchDirs {
+		err = filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() || !strings.HasPrefix(info.Name(), "_") || !strings.HasSuffix(info.Name(), ".gohtml") {
+				return nil
+			}
 
-		partialName := strings.TrimSuffix(strings.TrimPrefix(filename, "_"), ".gohtml")
-		controllerName := filepath.Base(filepath.Dir(partial))
+			filename := info.Name()
+			partialName := strings.TrimSuffix(strings.TrimPrefix(filename, "_"), ".gohtml")
 
-		templateName := controllerName + "#" + partialName
+			// Get the relative path to the current searchDir
+			rel, err := filepath.Rel(searchDir, path)
+			if err != nil {
+				return err
+			}
 
-		parsed, err := layout.
-			New(filename).
-			Funcs(t.fns).
-			ParseFiles(partial)
-		if err != nil {
-			return nil, err
-		}
+			dir := filepath.Dir(rel)
+			var templateName string
+			if dir == "layouts" || dir == "." || searchDir == "./views/layouts" {
+				templateName = partialName
+			} else {
+				// For nested partials, use the directory name as namespace
+				templateName = strings.ReplaceAll(dir, string(filepath.Separator), "/") + "#" + partialName
+			}
 
-		layout, err = layout.AddParseTree(templateName, parsed.Tree)
+			parsed, err := layout.
+				New(filename).
+				Funcs(t.fns).
+				ParseFiles(path)
+			if err != nil {
+				return err
+			}
+
+			layout, err = layout.AddParseTree(templateName, parsed.Tree)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
 		if err != nil {
 			return nil, err
 		}
