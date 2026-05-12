@@ -18,8 +18,12 @@ type Templates struct {
 	layouts map[string]*template.Template
 }
 
-var dummyFn = func(key string) template.HTML {
+var dummyFn = func(key string, args ...any) template.HTML {
 	return template.HTML(key)
+}
+
+var dummyV = func(key string) any {
+	return key
 }
 
 var iconCache = make(map[string]template.HTML)
@@ -157,7 +161,7 @@ func newTemplates(baseDomain string) *Templates {
 			// Every request will overwrite these funcs with methods that contain the request context to make
 			// sure it's able to access the requested language and view vars.
 			"t":          dummyFn,
-			"v":          dummyFn,
+			"v":          dummyV,
 			"csrf_token": func() string { return "" },
 			"csrf_field": func() template.HTML { return "" },
 		},
@@ -229,9 +233,10 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 	// Find and load all partial templates into the layout
 	// We walk both the basedir and the global layouts directory to support shared partials
 	searchDirs := []string{t.basedir}
-	if t.basedir == "./views/tenants" {
+	if strings.HasSuffix(filepath.ToSlash(t.basedir), "views/tenants") {
 		// Special case for multitenancy: also look in global layouts
-		searchDirs = append(searchDirs, "./views/layouts")
+		// We try to find the global layouts directory relative to the tenants directory
+		searchDirs = append(searchDirs, filepath.Join(filepath.Dir(t.basedir), "layouts"))
 	}
 
 	for _, searchDir := range searchDirs {
