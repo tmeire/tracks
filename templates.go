@@ -257,9 +257,9 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 				return err
 			}
 
-			dir := filepath.Dir(rel)
+			dir := filepath.ToSlash(filepath.Dir(rel))
 			var templateName string
-			if dir == "layouts" || dir == "." || searchDir == "./views/layouts" {
+			if dir == "layouts" || dir == "." || strings.HasSuffix(filepath.ToSlash(searchDir), "views/layouts") {
 				templateName = partialName
 			} else {
 				// For nested partials, use the directory name as namespace
