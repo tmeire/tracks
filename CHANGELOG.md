@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.0.58] - 2026-05-13
+### Added
+- Router: Added router injection in `Controller` and `ControllerAtPath` to allow controllers to access the router instance they are registered on.
+
+## [v0.0.57] - 2026-05-12
+### Changed
+- Templates: Improved partial naming logic to be more robust.
+
+## [v0.0.56] - 2026-05-12
+### Fixed
+- Templates: Fixed dummy function signatures and partial loading logic.
+
+## [v0.0.55] - 2026-05-12
+### Changed
+- Templates: Updated design system components in built-in templates.
+
+## [v0.0.54] - 2026-05-12
+### Added
+- Auth: Added `HasPassword` method to the `User` model.
+
+## [v0.0.53] - 2026-05-12
+### Added
+- Templates: Added `icon` template helper.
+### Changed
+- OpenTelemetry: Cleaned up OTel stdout exporters.
+
 ## [v0.0.52] - 2026-05-09
 ### Fixed
 - Authentication: Fixed user activation and password setup flow on subdomains by ensuring the central database is used instead of the tenant database.
