@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.59] - 2026-05-14
+### Fixed
+- BaseController: Added a nil check for the router in `Scheme()` to prevent panics when the controller is not fully initialized.
+
 ## [v0.0.58] - 2026-05-13
 ### Added
 - Router: Added router injection in `Controller` and `ControllerAtPath` to allow controllers to access the router instance they are registered on.

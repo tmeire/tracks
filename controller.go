@@ -32,7 +32,7 @@ func (bc *BaseController) Config() Config {
 }
 
 func (bc BaseController) Scheme() string {
-	if bc.router.Secure() {
+	if bc.router != nil && bc.router.Secure() {
 		return "https"
 	}
 	return "http"
