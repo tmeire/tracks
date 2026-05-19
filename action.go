@@ -268,13 +268,11 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	}
 
 	return tpl.ExecuteTemplate(w, "page", struct {
-		Title   string
 		Session session.Session
 		Flash   map[string]string
 		Content any
 		Vars    map[string]any
 	}{
-		Title:   resp.Title,
 		Session: sessionData,
 		Flash:   flash,
 		Content: resp.Data,

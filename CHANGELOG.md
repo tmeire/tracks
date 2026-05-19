@@ -1,6 +1,6 @@
 # Changelog
 
-## [v0.0.59] - 2026-05-14
+## [v0.0.60] - 2026-05-14
 ### Fixed
 - BaseController: Added a nil check for the router in `Scheme()` to prevent panics when the controller is not fully initialized.
 

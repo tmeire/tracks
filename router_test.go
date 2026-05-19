@@ -22,7 +22,7 @@ func TestRouter_Get(t *testing.T) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ .Title }}</title>
+    <title>{{ v "title" }}</title>
 </head>
 <body>
     {{ template "yield" .Content }}
