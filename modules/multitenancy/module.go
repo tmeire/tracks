@@ -20,34 +20,51 @@ import (
 //go:embed migrations
 var migrations embed.FS
 
+// Config defines the configuration for the multitenancy module
+type Config struct {
+	RootSubdomains []string
+}
+
+// DefaultConfig returns the default configuration for the multitenancy module
+var DefaultConfig = Config{
+	RootSubdomains: []string{"www"},
+}
+
 // Register registers the multitenancy functionality with the router
 func Register(r tracks.Router) tracks.Router {
-	// Apply migrations for this module explicitly (lives outside default path)
-	goose.SetBaseFS(migrations)
-	database.MigrateUp(context.Background(), r.Database(), database.CentralDatabase)
-	goose.SetBaseFS(nil)
+	return WithConfig(DefaultConfig)(r)
+}
 
-	rn := r.Clone().Views("./views/tenants").SkipDefaultMiddlewares()
+// WithConfig returns a Module that registers the multitenancy functionality with the given configuration
+func WithConfig(cfg Config) tracks.Module {
+	return func(r tracks.Router) tracks.Router {
+		// Apply migrations for this module explicitly (lives outside default path)
+		goose.SetBaseFS(migrations)
+		database.MigrateUp(context.Background(), r.Database(), database.CentralDatabase)
+		goose.SetBaseFS(nil)
 
+		rn := r.Clone().Views("./views/tenants").SkipDefaultMiddlewares()
 
-	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
-		tenantDB := NewTenantRepositoryWithMigrations(r.Database(), filepath.Join(".", "data"), filepath.Join(".", "migrations"))
+		r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+			tenantDB := NewTenantRepositoryWithMigrations(r.Database(), filepath.Join(".", "data"), filepath.Join(".", "migrations"))
 
-		h, err := rn.Handler()
-		if err != nil {
-			return nil, err
-		}
-		return &splitter{
-			tenantDB:         tenantDB,
-			root:             next,
-			subdomains:       h,
-			subdomainsRouter: rn,
-			baseDomain:       r.BaseDomain(),
-			secure:           r.Secure(),
-		}, nil
-	})
+			h, err := rn.Handler()
+			if err != nil {
+				return nil, err
+			}
+			return &splitter{
+				tenantDB:         tenantDB,
+				root:             next,
+				subdomains:       h,
+				subdomainsRouter: rn,
+				baseDomain:       r.BaseDomain(),
+				secure:           r.Secure(),
+				rootSubdomains:   cfg.RootSubdomains,
+			}, nil
+		})
 
-	return rn
+		return rn
+	}
 }
 
 type splitter struct {
@@ -58,6 +75,7 @@ type splitter struct {
 	subdomainsRouter tracks.Router
 	baseDomain       string
 	secure           bool
+	rootSubdomains   []string
 }
 
 func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -67,6 +85,13 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	subdomain := extractSubdomain(req.Host, s.baseDomain)
+	for _, rs := range s.rootSubdomains {
+		if subdomain == rs {
+			subdomain = ""
+			break
+		}
+	}
+
 	fmt.Printf("DEBUG: Splitter: Request %s %s (Host: %s, Subdomain: %s)\n", req.Method, req.URL.Path, req.Host, subdomain)
 
 	ctx := req.Context()
