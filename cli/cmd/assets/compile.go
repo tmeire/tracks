@@ -70,9 +70,14 @@ func hashAssets(keepOriginal bool) error {
 			return nil
 		}
 
+		filename := filepath.Base(path)
+		// Skip robots.txt and sitemap.xml to keep them at their static SEO paths
+		if filename == "robots.txt" || filename == "sitemap.xml" {
+			return nil
+		}
+
 		// Skip files that already have a hash in their name
 		// Files with a hash have a pattern like name.hash.ext
-		filename := filepath.Base(path)
 		parts := strings.Split(filename, ".")
 		if len(parts) > 2 {
 			// Check if the second-to-last part looks like a hash (8 hex characters)
