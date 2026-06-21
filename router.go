@@ -330,31 +330,42 @@ func (r *router) Static(urlPath, dir string) Router {
 	})
 }
 
-// StaticWithConfig registers a directory to serve static files from with additional configuration.
+// StaticWithConfig registers a directory or file to serve static files from with additional configuration.
 func (r *router) StaticWithConfig(urlPath, dir string, config StaticConfig) Router {
 	// Ensure the path starts with a slash
 	if !strings.HasPrefix(urlPath, "/") {
 		urlPath = "/" + urlPath
 	}
 
-	// Ensure the path ends with a slash for proper path matching
-	if !strings.HasSuffix(urlPath, "/") {
-		urlPath = urlPath + "/"
+	fi, err := os.Stat(dir)
+	isFile := err == nil && !fi.IsDir()
+
+	if !isFile {
+		// Ensure the path ends with a slash for proper path matching (only for directories!)
+		if !strings.HasSuffix(urlPath, "/") {
+			urlPath = urlPath + "/"
+		}
 	}
 
-	// Create a file server handler for the specified directory
+	// Create a file server handler for the specified directory or single file
 	var handler http.Handler
-	if config.DisableListing {
-		// Custom file server that disables listing could be implemented here
-		// For now, use standard FileServer
-		handler = http.FileServer(http.Dir(dir))
+	if isFile {
+		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			http.ServeFile(w, req, dir)
+		})
 	} else {
-		handler = http.FileServer(http.Dir(dir))
-	}
+		if config.DisableListing {
+			// Custom file server that disables listing could be implemented here
+			// For now, use standard FileServer
+			handler = http.FileServer(http.Dir(dir))
+		} else {
+			handler = http.FileServer(http.Dir(dir))
+		}
 
-	// Strip the URL path prefix when looking for files
-	if config.StripPrefix {
-		handler = http.StripPrefix(urlPath, handler)
+		// Strip the URL path prefix when looking for files
+		if config.StripPrefix {
+			handler = http.StripPrefix(urlPath, handler)
+		}
 	}
 
 	// Add cache control if configured
