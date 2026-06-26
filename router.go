@@ -202,8 +202,13 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 			lang := i18n.LanguageFromContext(r.Context())
 			r = AddViewVar(r, "locale", lang)
 
-			// Generate canonical URL (domain-canonicalized to https://floralynx.com for SEO safety)
-			canonical := "https://floralynx.com" + r.URL.Path
+			// Generate canonical URLs (domain-canonicalized to https://floralynx.com for SEO safety)
+			baseCanonical := "https://floralynx.com" + r.URL.Path
+			r = AddViewVar(r, "canonical_en", baseCanonical)
+			r = AddViewVar(r, "canonical_fr", baseCanonical+"?locale=fr")
+			r = AddViewVar(r, "canonical_nl", baseCanonical+"?locale=nl")
+
+			canonical := baseCanonical
 			if lang != "en" && lang != "" {
 				canonical += "?locale=" + lang
 			}
