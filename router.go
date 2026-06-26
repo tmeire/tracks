@@ -196,11 +196,19 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 	// Set up i18n middleware for language detection
 	r.GlobalMiddleware(i18n.Middleware(translator, "en"))
 
-	// Expose the detected locale in the view context
+	// Expose the detected locale and canonical URL in the view context
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			lang := i18n.LanguageFromContext(r.Context())
 			r = AddViewVar(r, "locale", lang)
+
+			// Generate canonical URL (domain-canonicalized to https://floralynx.com for SEO safety)
+			canonical := "https://floralynx.com" + r.URL.Path
+			if lang != "en" && lang != "" {
+				canonical += "?locale=" + lang
+			}
+			r = AddViewVar(r, "canonical_url", canonical)
+
 			next.ServeHTTP(w, r)
 		}), nil
 	})
