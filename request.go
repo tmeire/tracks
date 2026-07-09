@@ -1,6 +1,7 @@
 package tracks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -87,7 +88,7 @@ func UnmarshalForm(values map[string][]string, v any) error {
 // ParseJSONOrForm is a helper that returns a populated struct of type T from the request.
 func ParseJSONOrForm[T any](r *http.Request) (T, error) {
 	var v T
-	
+
 	// If T is a pointer, we need to allocate it
 	rv := reflect.ValueOf(&v).Elem()
 	if rv.Kind() == reflect.Ptr {
@@ -95,7 +96,31 @@ func ParseJSONOrForm[T any](r *http.Request) (T, error) {
 		err := ParseRequest(r, rv.Interface())
 		return v, err
 	}
-	
+
 	err := ParseRequest(r, &v)
 	return v, err
+}
+
+type contextKey string
+
+const varsKey contextKey = "tracks_vars"
+
+// SetVar sets a custom key-value context variable in the request context, returning the new request copy.
+func SetVar(r *http.Request, key, value any) *http.Request {
+	ctx := r.Context()
+	m, ok := ctx.Value(varsKey).(map[any]any)
+	if !ok {
+		m = make(map[any]any)
+		ctx = context.WithValue(ctx, varsKey, m)
+	}
+	m[key] = value
+	return r.WithContext(ctx)
+}
+
+// GetVar retrieves a custom context variable from the request context.
+func GetVar(r *http.Request, key any) any {
+	if m, ok := r.Context().Value(varsKey).(map[any]any); ok {
+		return m[key]
+	}
+	return nil
 }
