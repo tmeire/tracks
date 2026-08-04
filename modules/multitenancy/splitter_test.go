@@ -84,3 +84,63 @@ func TestSplitter_ViewVars(t *testing.T) {
 	
 	assert.True(t, subHandlerCalled, "subdomain handler should have been called")
 }
+
+func TestSplitter_AssetRouting(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "splitter_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	centralDBPath := filepath.Join(tempDir, "central.sqlite")
+	centralDB, err := sqlite.New(centralDBPath)
+	if err != nil {
+		t.Fatalf("Failed to create central database: %v", err)
+	}
+	defer centralDB.Close()
+
+	tenantDB := NewTenantRepositoryWithMigrations(centralDB, tempDir, "./testdata/migrations/")
+	defer tenantDB.Close()
+
+	rootCalled := false
+	subdomainsCalled := false
+
+	s := &splitter{
+		tenantDB: tenantDB,
+		root: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rootCalled = true
+		}),
+		subdomains: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			subdomainsCalled = true
+		}),
+		baseDomain: "floralynx.com",
+		secure:     false,
+	}
+
+	// Request an asset on a subdomain
+	reqAsset := httptest.NewRequest("GET", "http://test.floralynx.com/assets/css/application.css", nil)
+	wAsset := httptest.NewRecorder()
+	rootCalled = false
+	subdomainsCalled = false
+	s.ServeHTTP(wAsset, reqAsset)
+	assert.True(t, rootCalled, "Asset requests should be routed to the root handler")
+	assert.False(t, subdomainsCalled, "Asset requests should not be routed to the subdomains handler")
+
+	// Request robots.txt on a subdomain
+	reqRobots := httptest.NewRequest("GET", "http://test.floralynx.com/robots.txt", nil)
+	wRobots := httptest.NewRecorder()
+	rootCalled = false
+	subdomainsCalled = false
+	s.ServeHTTP(wRobots, reqRobots)
+	assert.True(t, rootCalled, "robots.txt requests should be routed to the root handler")
+	assert.False(t, subdomainsCalled, "robots.txt requests should not be routed to the subdomains handler")
+
+	// Request sitemap.xml on a subdomain
+	reqSitemap := httptest.NewRequest("GET", "http://test.floralynx.com/sitemap.xml", nil)
+	wSitemap := httptest.NewRecorder()
+	rootCalled = false
+	subdomainsCalled = false
+	s.ServeHTTP(wSitemap, reqSitemap)
+	assert.True(t, rootCalled, "sitemap.xml requests should be routed to the root handler")
+	assert.False(t, subdomainsCalled, "sitemap.xml requests should not be routed to the subdomains handler")
+}

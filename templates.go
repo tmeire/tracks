@@ -79,7 +79,7 @@ func newTemplates(baseDomain string) *Templates {
 				if s[0] != '/' {
 					s = "/" + s
 				}
-				return template.URL("//" + baseDomain + s)
+				return template.URL(s)
 			},
 			// Formatting helpers
 			"cents": func(c int64) string {
@@ -184,7 +184,7 @@ func (t *Templates) Clone() *Templates {
 // Func adds a new function to templates that are loaded after this call
 func (t *Templates) Func(name string, fn any) {
 	t.fns[name] = fn
-	t.layouts = nil
+	t.layouts = make(map[string]*template.Template)
 }
 
 func (t *Templates) loadLayout(name string) (*template.Template, error) {

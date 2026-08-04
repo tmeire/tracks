@@ -79,6 +79,14 @@ type splitter struct {
 }
 
 func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Serve static files and assets on the root domain router directly to avoid CORS/origin issues
+	if strings.HasPrefix(req.URL.Path, "/assets/") || req.URL.Path == "/robots.txt" || req.URL.Path == "/sitemap.xml" {
+		ctx := req.Context()
+		ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
+		s.root.ServeHTTP(w, req.WithContext(ctx))
+		return
+	}
+
 	host := req.Host
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h

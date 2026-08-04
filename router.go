@@ -808,8 +808,8 @@ func (r *router) Run(ctx context.Context) error {
 
 func (r *router) run(ctx context.Context, h http.Handler) error {
 	defer func() {
-		if err := r.shutdownOtel(ctx); err != nil {
-			log.Fatalf("failed to shut down open telemetry provider: %v", err)
+		if r.shutdownOtel != nil {
+			_ = r.shutdownOtel(ctx)
 		}
 	}()
 
@@ -866,6 +866,9 @@ func (r *router) run(ctx context.Context, h http.Handler) error {
 			slog.ErrorContext(ctx, "Failed to close server", "error", err)
 		}
 	case <-done:
+	}
+	if err != nil && err != http.ErrServerClosed {
+		fmt.Fprintf(os.Stderr, "\n[!] CRITICAL TRACKS SERVER ERROR: %v\n\n", err)
 	}
 	return err
 }
