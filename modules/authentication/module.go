@@ -106,6 +106,18 @@ func SystemRoleMiddleware(next http.Handler) (http.Handler, error) {
 	}), nil
 }
 
+type RegisterOption func(*registerOptions)
+
+type registerOptions struct {
+	sessionsNewLayout string
+}
+
+func WithSessionsNewLayout(layout string) RegisterOption {
+	return func(o *registerOptions) {
+		o.sessionsNewLayout = layout
+	}
+}
+
 // Register sets up authentication-related routes and middleware for the application.
 // It configures endpoints for user sessions including login, logout, and applies
 // authentication middleware to protected routes.
@@ -115,7 +127,14 @@ func SystemRoleMiddleware(next http.Handler) (http.Handler, error) {
 //
 // Returns:
 //   - tracks.Router: The modified router with authentication routes and middleware
-func Register(r tracks.Router) tracks.Router {
+func Register(r tracks.Router, opts ...RegisterOption) tracks.Router {
+	o := &registerOptions{
+		sessionsNewLayout: "application",
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	sr := SessionsResource{}
 	ur := UsersResource{
 		schema: NewSchema(),
@@ -123,8 +142,15 @@ func Register(r tracks.Router) tracks.Router {
 
 	return r.
 		GlobalMiddleware(SystemRoleMiddleware).
-		// Login screen
-		GetFunc("/sessions/new", "sessions", "new", sr.New).
+		// Login screen (registered exactly once with custom layout option)
+		Serve(tracks.Action{
+			Method:     "GET",
+			Path:       "/sessions/new",
+			Controller: "sessions",
+			Name:       "new",
+			Func:       sr.New,
+			Layout:     o.sessionsNewLayout,
+		}).
 		// Login action
 		PostFunc("/sessions/", "sessions", "create", sr.Create).
 		GetFunc("/users/", "users", "index", ur.Index).
