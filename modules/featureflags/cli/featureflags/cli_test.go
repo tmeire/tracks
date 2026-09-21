@@ -23,7 +23,7 @@ func prepareDB(t *testing.T) (dbPath string) {
 	}
 	defer db.Close()
 	// apply migrations for featureflags
-	migPath := filepath.Join("..", "..", "..", "modules", "featureflags", "db", "migrations", "central")
+	migPath := filepath.Join("..", "..", "db", "migrations", "central")
 	if err := database.MigrateUpDir(context.Background(), db, database.CentralDatabase, migPath); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}

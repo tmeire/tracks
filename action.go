@@ -223,7 +223,11 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	// Resolve the correct template (potentially domain-specific)
 	var tpl *template.Template
 	if dt, ok := a.template.(*dynamicTemplate); ok {
-		tpl = dt.resolve(r)
+		var err error
+		tpl, err = dt.resolve(r).Clone()
+		if err != nil {
+			return err
+		}
 	} else {
 		var err error
 		tpl, err = a.template.Clone()
