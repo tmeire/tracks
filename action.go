@@ -167,6 +167,9 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 
 	// If template rendering fails, fallback to JSON
 	w.Header().Set("Content-Type", "application/json")
+	if resp.StatusCode != 0 {
+		w.WriteHeader(resp.StatusCode)
+	}
 	jsonErr := json.NewEncoder(w).Encode(err)
 	if jsonErr != nil {
 		w.Write([]byte("Error rendering template and marshaling JSON"))
@@ -196,6 +199,12 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 		}
 	}
 
+	if a.template == nil {
+		err := fmt.Errorf("template not found")
+		span.RecordError(err)
+		return err
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		err := a.template.ExecuteTemplate(w, strconv.Itoa(resp.StatusCode), resp)
 		if err != nil {
@@ -205,12 +214,6 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 			return err
 		}
 		return nil
-	}
-
-	if a.template == nil {
-		err := fmt.Errorf("template not found")
-		span.RecordError(err)
-		return err
 	}
 
 	w.Header().Set("Content-Type", "text/html")
