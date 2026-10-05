@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"log/slog"
 	"net/http"
+	"os"
 )
 
 type Shutdown func(ctx context.Context) error
@@ -121,7 +122,12 @@ func logs(ctx context.Context, rs *resource.Resource) (*log.LoggerProvider, erro
 		log.WithResource(rs),
 	)
 
-	slog.SetDefault(otelslog.NewLogger("name", otelslog.WithLoggerProvider(lp)))
+	// Fan out to stdout as well as OTel: slog.SetDefault also redirects the standard
+	// log package, so without a local handler all log output would only reach the collector.
+	slog.SetDefault(slog.New(slog.NewMultiHandler(
+		slog.NewTextHandler(os.Stdout, nil),
+		otelslog.NewHandler("name", otelslog.WithLoggerProvider(lp)),
+	)))
 
 	return lp, nil
 }
