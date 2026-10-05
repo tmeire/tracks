@@ -1,108 +1,81 @@
-# Tracks CLI Module
+# Tracks CLI
 
-This module provides a command-line interface for the Tracks application using [Cobra](https://github.com/spf13/cobra) and [Viper](https://github.com/spf13/viper).
+The `tracks` CLI provides utilities for scaffolding, code generation, asset compilation, and database migrations for Tracks applications.
 
-## Overview
+## Building the CLI
 
-The CLI module is designed to provide a flexible and extensible command-line interface for the Tracks application. It uses Cobra for command structure and Viper for configuration management.
-
-## Usage
-
-To use the CLI, build the application and run it with the desired command:
+To compile the CLI binary:
 
 ```bash
-# Build the CLI application
-go build -o tracks ./main.go
-
-# Run the CLI application
-./tracks [command]
+go build -o tracks ./cli/main.go
 ```
 
 ## Available Commands
 
-### version
+### `init`
 
-Displays the current version of the Tracks application.
+Initializes a new Tracks application with the standard directory structure, configuration, layout, default controller, and Docker/OTel setup.
+
+```bash
+./tracks init <module_path>
+# Example:
+./tracks init github.com/myorg/myapp
+```
+
+### `generate`
+
+Generates controllers and resourceful CRUD scaffolding.
+
+#### Controller & Action:
+
+```bash
+./tracks generate controller <method> <path>
+# Example:
+./tracks generate controller GET /about
+```
+This generates `controllers/about.go`, `views/default/about.gohtml`, and registers the route in `main.go`.
+
+#### Resource Scaffolding:
+
+```bash
+./tracks generate resource <name>
+# Example:
+./tracks generate resource posts
+```
+This generates:
+- Controller implementing `tracks.Resource` (`controllers/posts.go`)
+- Database model (`models/posts.go`)
+- Views: `views/posts/index.gohtml`, `new.gohtml`, `show.gohtml`, `edit.gohtml`
+- Route registration in `main.go`
+
+### `db`
+
+Manages database migrations via Goose. Note the nested subcommand syntax:
+
+```bash
+# Apply pending migrations
+./tracks db db up [--type central|tenant] [--db path]
+
+# Rollback migrations
+./tracks db db down [--type central|tenant] [--db path]
+
+# View migration status
+./tracks db db status [--type central|tenant] [--db path]
+```
+
+### `assets`
+
+Pre-processes and hashes static assets for production:
+
+```bash
+./tracks assets compile [-r|--remove-original]
+```
+This hashes assets in `public/` using MD5 and rewrites references.
+
+### `version`
+
+Prints the current version of Tracks:
 
 ```bash
 ./tracks version
-```
-
-### tenant
-
-Manages tenants in the multitenancy system.
-
-```bash
-./tracks tenant [command]
-```
-
-#### Subcommands
-
-##### create
-
-Creates a new tenant with the specified name and subdomain.
-
-```bash
-./tracks tenant create [name] [subdomain]
-```
-
-### server
-
-Starts the Tracks server with the specified configuration.
-
-```bash
-./tracks server [flags]
-```
-
-#### Flags
-
-- `--port, -p`: Port to run the server on (default: 8080)
-- `--host, -H`: Host to bind the server to (default: localhost)
-- `--debug, -d`: Enable debug mode (default: false)
-- `--config`: Config file (default: ./.tracks.yaml)
-
-## Configuration
-
-The CLI uses Viper for configuration management, which supports:
-
-1. Command-line flags
-2. Environment variables
-3. Configuration files
-
-### Configuration File
-
-By default, the CLI looks for a configuration file named `.tracks.yaml` in the current directory. You can specify a different configuration file using the `--config` flag.
-
-### Environment Variables
-
-The CLI also reads configuration from environment variables. For example:
-
-- `PORT`: Port to run the server on
-- `HOST`: Host to bind the server to
-- `DEBUG`: Enable debug mode
-
-## Extending the CLI
-
-To add a new command to the CLI, create a new file in the `internal/tracks/cli` directory and define your command using Cobra. Then, add your command to the root command in the `init()` function.
-
-Example:
-
-```go
-package cli
-
-import (
-    "github.com/spf13/cobra"
-)
-
-var newCmd = &cobra.Command{
-    Use:   "new",
-    Short: "A brief description of your command",
-    Run: func(cmd *cobra.Command, args []string) {
-        // Your command logic here
-    },
-}
-
-func init() {
-    rootCmd.AddCommand(newCmd)
-}
 ```
