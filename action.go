@@ -94,11 +94,14 @@ func (a *action) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				},
 			}
 		} else {
+			// Unexpected errors are logged in full but never shown to the user
+			span.RecordError(err)
+			slog.ErrorContext(ctx, "action failed", "action", a.name, "method", r.Method, "path", r.URL.Path, "error", err)
 			resp = &Response{
 				StatusCode: http.StatusInternalServerError,
 				Data: ErrorData{
 					Success: false,
-					Message: err.Error(),
+					Message: "An internal server error occurred",
 					Code:    "INTERNAL_SERVER_ERROR",
 				},
 			}
@@ -163,14 +166,14 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 	}
 
 	trace.SpanFromContext(r.Context()).RecordError(err)
-	slog.Warn("failed to render response", "error", err)
+	slog.Warn("failed to render response", "status", resp.StatusCode, "path", r.URL.Path, "error", err)
 
 	// If template rendering fails, fallback to JSON
 	w.Header().Set("Content-Type", "application/json")
 	if resp.StatusCode != 0 {
 		w.WriteHeader(resp.StatusCode)
 	}
-	jsonErr := json.NewEncoder(w).Encode(err)
+	jsonErr := json.NewEncoder(w).Encode(resp.Data)
 	if jsonErr != nil {
 		w.Write([]byte("Error rendering template and marshaling JSON"))
 		return
