@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tmeire/tracks/database"
+	"github.com/tmeire/tracks/i18n"
 	"github.com/tmeire/tracks/session"
 	sessionconfig "github.com/tmeire/tracks/session/config"
 )
@@ -23,6 +24,8 @@ type TestApp struct {
 type TestConfig struct {
 	Database      string
 	Transactional bool
+	// I18n enables the given locale configuration, e.g. the path strategy.
+	I18n *i18n.Config
 }
 
 func NewTestApp(t *testing.T, config TestConfig) *TestApp {
@@ -40,6 +43,7 @@ func NewTestApp(t *testing.T, config TestConfig) *TestApp {
 				Type: "inmemory",
 			},
 		},
+		I18n: config.I18n,
 	}
 
 	app := &TestApp{

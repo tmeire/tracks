@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- i18n: Opt-in `i18n` config block (`default`, `locales`, `strategy`, `base_url`). With `"strategy": "path"`, `/nl/...` serves Dutch from the same routes (the prefix is stripped before routing), `/en/...` redirects to the unprefixed URL, and cookies or headers never change the language of a URL.
+- i18n: Template helpers `localize`, `alternates`, `alternate_links` and `canonical_url`; `suggested_locale` view var.
+- i18n: `tracks.SetAlternates`, `tracks.LocalizePath`, `tracks.T`, `i18n.URLFor`, `i18n.CanonicalURL` and `i18n.Alternates` helpers.
+- Testing: `TestConfig.I18n` to test localized routes.
+### Changed
+- i18n: Root-relative redirects (`Response.Location`, `tracks.Redirect`, `Router.Redirect`) keep the language prefix of the current page in path mode.
+- i18n: Missing translation keys are logged once per locale and key.
+### Fixed
+- i18n: The legacy `canonical_*` view vars were hardcoded to `https://floralynx.com`; they're now derived from `base_domain` and `secure`.
+
 ## [v0.0.60] - 2026-05-14
 ### Fixed
 - BaseController: Added a nil check for the router in `Scheme()` to prevent panics when the controller is not fully initialized.

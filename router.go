@@ -119,8 +119,14 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 		return errRouter{err: err}
 	}
 
-	// Initialize the translator with English as the default language
-	translator := i18n.NewTranslator("en")
+	i18nConf, i18nConfigured := conf.i18nConfig()
+	if err := i18nConf.Validate(); err != nil {
+		slog.ErrorContext(ctx, "Invalid i18n configuration", "error", err)
+		return errRouter{err: err}
+	}
+
+	// Initialize the translator with the configured default language
+	translator := i18n.NewTranslator(i18nConf.Default)
 
 	// Try to load translations from the translations directory
 	err = translator.LoadTranslations("./translations")
@@ -193,17 +199,44 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 
 	r.GlobalMiddleware(database.Middleware(db))
 
-	// Set up i18n middleware for language detection
+	if i18nConfigured {
+		// Resolve the language with the configured strategy. With the path strategy the locale
+		// prefix is stripped here, before any route or application middleware sees the path.
+		r.GlobalMiddleware(i18n.NewMiddleware(translator, i18nConf))
+		r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r = AddViewVar(r, "locale", i18n.LanguageFromContext(r.Context()))
+				r = AddViewVar(r, "suggested_locale", i18n.SuggestedLanguage(r.Context()))
+				next.ServeHTTP(w, r)
+			}), nil
+		})
+	} else {
+		r.useLegacyI18n(translator)
+	}
+
+	// Set up sessions for all the domains
+	sessionMW, err := conf.Sessions.Middleware(ctx, conf.BaseDomain, db)
+	if err != nil {
+		log.Printf("Failed to create session middleware: %v", err)
+		return errRouter{err: err}
+	}
+	r.GlobalMiddleware(sessionMW)
+
+	return r
+}
+
+// useLegacyI18n installs the language detection used when no i18n block is configured:
+// query parameter, cookie, session and Accept-Language, plus the canonical_* view vars.
+func (r *router) useLegacyI18n(translator *i18n.Translator) {
 	r.GlobalMiddleware(i18n.Middleware(translator, "en"))
 
-	// Expose the detected locale and canonical URL in the view context
+	baseURL := r.config.BaseURL()
 	r.GlobalMiddleware(func(next http.Handler) (http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			lang := i18n.LanguageFromContext(r.Context())
 			r = AddViewVar(r, "locale", lang)
 
-			// Generate canonical URLs (domain-canonicalized to https://floralynx.com for SEO safety)
-			baseCanonical := "https://floralynx.com" + r.URL.Path
+			baseCanonical := baseURL + r.URL.Path
 			r = AddViewVar(r, "canonical_en", baseCanonical)
 			r = AddViewVar(r, "canonical_fr", baseCanonical+"?locale=fr")
 			r = AddViewVar(r, "canonical_nl", baseCanonical+"?locale=nl")
@@ -217,16 +250,6 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 			next.ServeHTTP(w, r)
 		}), nil
 	})
-
-	// Set up sessions for all the domains
-	sessionMW, err := conf.Sessions.Middleware(ctx, conf.BaseDomain, db)
-	if err != nil {
-		log.Printf("Failed to create session middleware: %v", err)
-		return errRouter{err: err}
-	}
-	r.GlobalMiddleware(sessionMW)
-
-	return r
 }
 
 func (r *router) Clone() Router {
@@ -614,7 +637,9 @@ func (r *router) Page(path string, view string) Router {
 }
 
 func (r *router) Redirect(origin string, destination string) Router {
-	r.mux.Handle(origin, http.RedirectHandler(destination, http.StatusMovedPermanently))
+	r.mux.Handle(origin, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		http.Redirect(w, req, i18n.LocalizePath(req.Context(), destination), http.StatusMovedPermanently)
+	}))
 	return r
 }
 

@@ -133,6 +133,11 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 		resp.StatusCode = http.StatusOK
 	}
 
+	// Keep redirects in the language of the current page ("/cart" becomes "/nl/cart")
+	if resp.Location != "" {
+		resp.Location = i18n.LocalizePath(r.Context(), resp.Location)
+	}
+
 	// Determine content type based on Accept header
 	contentTypes := determineContentType(r)
 
@@ -258,6 +263,18 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 		},
 		"v": func(key string) any {
 			return vars[key]
+		},
+		"localize": func(path string) string {
+			return i18n.LocalizePath(ctx, path)
+		},
+		"alternates": func() []i18n.Alternate {
+			return i18n.Alternates(ctx)
+		},
+		"alternate_links": func() template.HTML {
+			return i18n.AlternateLinks(ctx)
+		},
+		"canonical_url": func() string {
+			return i18n.CanonicalURL(ctx)
 		},
 		"safe": func(s string) template.HTML {
 			return template.HTML(s)

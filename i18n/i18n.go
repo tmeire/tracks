@@ -3,6 +3,7 @@ package i18n
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ type Translator struct {
 	flatCache    map[string]map[string]string      // Flattened for quick lookup
 	defaultLang  string
 	mutex        sync.RWMutex
+	missing      sync.Map // "lang\x00key" of missing translations that were already logged
 }
 
 // NewTranslator creates a new translator with the given default language
@@ -120,22 +122,41 @@ func getNestedValue(nested map[string]interface{}, key string) (string, bool) {
 	return "", false
 }
 
-// Translate translates a key to the given language
+// Translate translates a key to the given language. When the key is missing for a language that
+// has translations loaded, it falls back to the default language (or the key itself) and logs a
+// warning once per language and key.
 func (t *Translator) Translate(lang, key string) string {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
+	_, known := t.translations[lang]
+	translation, found := t.lookup(lang, key)
+	if !found && known {
+		t.logMissing(lang, key)
+	}
+	return translation
+}
+
+func (t *Translator) logMissing(lang, key string) {
+	if _, logged := t.missing.LoadOrStore(lang+"\x00"+key, struct{}{}); !logged {
+		slog.Warn("i18n: missing translation", "locale", lang, "key", key)
+	}
+}
+
+// lookup returns the translation of key in lang, falling back to the default language and then
+// to the key itself. found reports whether lang itself has the key.
+func (t *Translator) lookup(lang, key string) (translation string, found bool) {
 	// First check the flat cache for quick lookup
 	if cache, ok := t.flatCache[lang]; ok {
 		if translation, ok := cache[key]; ok {
-			return translation
+			return translation, true
 		}
 	}
 
 	// Try the nested structure for the requested language
 	if translations, ok := t.translations[lang]; ok {
 		if translation, ok := getNestedValue(translations, key); ok {
-			return translation
+			return translation, true
 		}
 	}
 
@@ -144,20 +165,20 @@ func (t *Translator) Translate(lang, key string) string {
 		// Check flat cache first
 		if cache, ok := t.flatCache[t.defaultLang]; ok {
 			if translation, ok := cache[key]; ok {
-				return translation
+				return translation, false
 			}
 		}
 
 		// Try nested structure
 		if translations, ok := t.translations[t.defaultLang]; ok {
 			if translation, ok := getNestedValue(translations, key); ok {
-				return translation
+				return translation, false
 			}
 		}
 	}
 
 	// Return the key if no translation is found
-	return key
+	return key, false
 }
 
 // TranslateWithParams translates a key to the given language and applies parameters

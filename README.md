@@ -279,6 +279,10 @@ Every page template renders inside a layout:
 | Helper | Description | Example |
 |---|---|---|
 | `{{t "key"}}` | Localized translation from `translations/{lang}.json` | `{{t "welcome_message"}}` |
+| `{{localize "/path"}}` | Path in the current language (`/nl/path` on a Dutch page) | `<a href="{{localize "/cart"}}">` |
+| `{{alternate_links}}` | `hreflang` alternate `<link>` tags incl. `x-default` | `{{alternate_links}}` in `<head>` |
+| `{{alternates}}` | Language versions of the page (`.Locale`, `.Path`, `.URL`, `.Current`) | `{{range alternates}}…{{end}}` |
+| `{{canonical_url}}` | Absolute URL of the page in the current language | `<link rel="canonical" href="{{canonical_url}}">` |
 | `{{v "key"}}` | View variable set in handler via `tracks.AddViewVar` | `{{v "page_title"}}` |
 | `{{csrf_field}}` | Generates `<input type="hidden" name="csrf_token" ...>` | `{{csrf_field}}` |
 | `{{csrf_token}}` | Raw CSRF token string | `{{csrf_token}}` |
@@ -288,6 +292,46 @@ Every page template renders inside a layout:
 | `{{dict "k1" v1 "k2" v2}}` | Constructs a dictionary for partial passing | `{{template "card" (dict "Item" . "Class" "highlight")}}` |
 | `{{cents 1050}}` | Formats cents to dollars/euros (`10.50`) | `{{cents .PriceInCents}}` |
 | `{{safe .HTML}}` | Marks string as trusted HTML (`template.HTML`) | `{{safe .RichContent}}` |
+
+#### Internationalization
+
+Translations live in `translations/{locale}.json` (nested keys, accessed with dots: `{{t "nav.cart"}}`). Missing keys fall back to the default language and are logged once per locale and key.
+
+Add an `i18n` block to `config.json` to serve every language on its own URL, which is what search engines expect:
+
+```json
+"i18n": { "default": "en", "locales": ["en", "nl", "fr"], "strategy": "path" }
+```
+
+* `/nl/about` is routed as `/about` with language `nl`, so you register every route once. Unprefixed URLs use the default language and `/en/...` redirects (301) to the unprefixed URL.
+* Cookies and `Accept-Language` never change the language of a URL. When the visitor prefers another configured language, the `suggested_locale` view var holds it, so you can offer a switch.
+* Root-relative redirects stay in the current language (`tracks.Redirect("/cart")` sends Dutch visitors to `/nl/cart`). To switch language, redirect to `i18n.URLFor(ctx, "en", "/cart")`.
+* Pages whose paths differ per language (translated slugs), or that don't exist in every language, declare their versions; locales left out get no alternate link:
+
+```go
+tracks.SetAlternates(r, map[string]string{
+    "en": "/coloring-pages/cow",
+    "nl": "/kleurplaten/koe", // served as /nl/kleurplaten/koe
+})
+```
+
+A minimal localized layout:
+
+```html
+<html lang="{{v "locale"}}">
+<head>
+  <link rel="canonical" href="{{canonical_url}}">
+  {{alternate_links}}
+</head>
+<body>
+  <a href="{{localize "/"}}">{{t "nav.home"}}</a>
+  {{range alternates}}{{if not .Current}}<a href="{{.Path}}" hreflang="{{.Locale}}">{{.Locale}}</a>{{end}}{{end}}
+</body>
+```
+
+In Go code, use `tracks.T(r, "key")`, `tracks.LocalizePath(r, "/path")` and `i18n.CanonicalURL(ctx)`. Absolute URLs use `base_url` from the `i18n` block, or `base_domain` and `secure` when it's omitted.
+
+Without an `i18n` block, the language is detected per request (`?locale=`, `locale` cookie, session, `Accept-Language`) and URLs are shared by all languages, as before. Set `"strategy": "detect"` to keep that behaviour while limiting it to the configured locales.
 
 #### Multi-Domain Template Overrides
 

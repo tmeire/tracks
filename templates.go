@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tmeire/tracks/i18n"
 )
 
 type Templates struct {
@@ -160,10 +162,14 @@ func newTemplates(baseDomain string) *Templates {
 			// These are placeholder implementations to make sure the templates can be loaded on boot.
 			// Every request will overwrite these funcs with methods that contain the request context to make
 			// sure it's able to access the requested language and view vars.
-			"t":          dummyFn,
-			"v":          dummyV,
-			"csrf_token": func() string { return "" },
-			"csrf_field": func() template.HTML { return "" },
+			"t":               dummyFn,
+			"v":               dummyV,
+			"localize":        func(path string) string { return path },
+			"alternates":      func() []i18n.Alternate { return nil },
+			"alternate_links": func() template.HTML { return "" },
+			"canonical_url":   func() string { return "" },
+			"csrf_token":      func() string { return "" },
+			"csrf_field":      func() template.HTML { return "" },
 		},
 	}
 }
