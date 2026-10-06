@@ -185,6 +185,15 @@ func (a *action) write(w http.ResponseWriter, r *http.Request, resp *Response) {
 	}
 }
 
+// redirectStatus returns the status code of a redirect: the 3xx code the action asked for (e.g. a
+// 301 for a moved page), or 303 See Other by default, which suits redirects after a form post.
+func redirectStatus(code int) int {
+	if code >= 300 && code < 400 {
+		return code
+	}
+	return http.StatusSeeOther
+}
+
 type renderer func(r *http.Request, w http.ResponseWriter, resp *Response) error
 
 // renderHTML renders an HTML template with the given data
@@ -193,18 +202,16 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	defer span.End()
 
 	if resp.Location != "" {
-		fmt.Printf("DEBUG: renderHTML redirecting to %s (Request: %s %s)\n", resp.Location, r.Method, r.URL.Path)
 		// TODO: Not really a fan of hardcoding support for HTMX in here. This feels like we need some kind of hook
 		// system here so we can also support libraries like Turbo JS.
 		if r.Header.Get("hx-request") == "true" {
 			w.Header().Set("HX-Redirect", resp.Location)
 			w.WriteHeader(http.StatusAccepted)
 			return nil
-		} else {
-			w.Header().Set("Location", resp.Location)
-			w.WriteHeader(http.StatusSeeOther)
-			return nil
 		}
+		w.Header().Set("Location", resp.Location)
+		w.WriteHeader(redirectStatus(resp.StatusCode))
+		return nil
 	}
 
 	if a.template == nil {

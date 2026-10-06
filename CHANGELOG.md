@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Redirects: HTML responses now honor an explicit 3xx `Response.StatusCode` (e.g. 301 Moved Permanently) instead of always sending 303 See Other. 303 stays the default when no redirect status is given, which suits redirects after form posts. HTMX requests still get `HX-Redirect` with 202.
+- Redirects: Removed the `DEBUG: renderHTML redirecting` line that was printed to stdout on every redirect.
+
 ## [v0.0.74] - 2026-10-06
 ### Added
 - i18n: Opt-in `i18n` config block (`default`, `locales`, `strategy`, `base_url`). With `"strategy": "path"`, `/nl/...` serves Dutch from the same routes (the prefix is stripped before routing), `/en/...` redirects to the unprefixed URL, and cookies or headers never change the language of a URL.
