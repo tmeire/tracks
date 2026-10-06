@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v0.0.74] - 2026-10-06
 ### Added
 - i18n: Opt-in `i18n` config block (`default`, `locales`, `strategy`, `base_url`). With `"strategy": "path"`, `/nl/...` serves Dutch from the same routes (the prefix is stripped before routing), `/en/...` redirects to the unprefixed URL, and cookies or headers never change the language of a URL.
 - i18n: Template helpers `localize`, `alternates`, `alternate_links` and `canonical_url`; `suggested_locale` view var.
