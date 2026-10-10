@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [v0.0.76] - 2026-10-10
 ### Fixed
 - Templates: Partials (`_name.gohtml`) are found when the views directory is a symlink. `filepath.Walk` doesn't descend into a symlinked root, so a layout using `{{ template "name" . }}` failed with "no such template" when the views were linked in, e.g. next to a package's tests.
 
