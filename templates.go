@@ -246,7 +246,13 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 	}
 
 	for _, searchDir := range searchDirs {
-		err = filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		// filepath.Walk doesn't descend into a root that is a symlink, so resolve it first: a
+		// views directory linked from elsewhere (e.g. next to a package's tests) keeps its partials.
+		root, err := filepath.EvalSymlinks(searchDir)
+		if err != nil {
+			return nil, err
+		}
+		err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -258,7 +264,7 @@ func (t *Templates) loadLayout(name string) (*template.Template, error) {
 			partialName := strings.TrimSuffix(strings.TrimPrefix(filename, "_"), ".gohtml")
 
 			// Get the relative path to the current searchDir
-			rel, err := filepath.Rel(searchDir, path)
+			rel, err := filepath.Rel(root, path)
 			if err != nil {
 				return err
 			}

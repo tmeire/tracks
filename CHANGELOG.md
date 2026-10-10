@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Templates: Partials (`_name.gohtml`) are found when the views directory is a symlink. `filepath.Walk` doesn't descend into a symlinked root, so a layout using `{{ template "name" . }}` failed with "no such template" when the views were linked in, e.g. next to a package's tests.
+
 ## [v0.0.75] - 2026-10-06
 ### Fixed
 - Redirects: HTML responses now honor an explicit 3xx `Response.StatusCode` (e.g. 301 Moved Permanently) instead of always sending 303 See Other. 303 stays the default when no redirect status is given, which suits redirects after form posts. HTMX requests still get `HX-Redirect` with 202.
