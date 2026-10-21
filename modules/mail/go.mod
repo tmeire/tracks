@@ -4,7 +4,7 @@ go 1.26.0
 
 replace github.com/tmeire/tracks => ../../
 
-require github.com/tmeire/tracks v0.0.36
+require github.com/tmeire/tracks v0.0.76
 
 require (
 	github.com/XSAM/otelsql v0.44.0 // indirect
