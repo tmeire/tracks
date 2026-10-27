@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tmeire/tracks/i18n"
@@ -18,6 +19,10 @@ type Templates struct {
 	fns     template.FuncMap
 	basedir string
 	layouts map[string]*template.Template
+
+	// development enables per-request template resolution so template edits show up
+	// without a restart. When false, dynamic templates cache their resolution.
+	development bool
 }
 
 var dummyFn = func(key string, args ...any) template.HTML {
@@ -30,10 +35,11 @@ var dummyV = func(key string) any {
 
 var iconCache = make(map[string]template.HTML)
 
-func newTemplates(baseDomain string) *Templates {
+func newTemplates(baseDomain string, development bool) *Templates {
 	return &Templates{
-		basedir: "./views",
-		layouts: make(map[string]*template.Template),
+		basedir:     "./views",
+		development: development,
+		layouts:     make(map[string]*template.Template),
 		fns: template.FuncMap{
 			// Time helpers
 			"date": func(format string, t time.Time) string {
@@ -181,9 +187,10 @@ func (t *Templates) Clone() *Templates {
 	}
 
 	return &Templates{
-		fns:     newFns,
-		basedir: t.basedir,
-		layouts: make(map[string]*template.Template),
+		fns:         newFns,
+		basedir:     t.basedir,
+		layouts:     make(map[string]*template.Template),
+		development: t.development,
 	}
 }
 
@@ -312,6 +319,12 @@ type dynamicTemplate struct {
 	controller string
 	action     string
 	defaultTpl *template.Template
+
+	// resolution caches the template resolved per domain; a nil entry means "no
+	// domain-specific template exists for this domain". It is only consulted when
+	// development mode is off; in development, resolve keeps statting so template edits
+	// are picked up without a restart.
+	resolution sync.Map // domain -> *template.Template (nil = none)
 }
 
 func (dt *dynamicTemplate) resolve(r *http.Request) *template.Template {
@@ -320,19 +333,37 @@ func (dt *dynamicTemplate) resolve(r *http.Request) *template.Template {
 		return dt.defaultTpl
 	}
 
+	if !dt.ts.development {
+		if cached, ok := dt.resolution.Load(domain); ok {
+			tpl, _ := cached.(*template.Template)
+			if tpl != nil {
+				return tpl
+			}
+			return dt.defaultTpl
+		}
+	}
+
 	// Check for domain-specific template
 	filename := dt.action + ".gohtml"
 	domainTemplatePath := filepath.Join(dt.ts.basedir, "domains", domain, dt.controller, filename)
 
+	var tpl *template.Template
 	if _, err := os.Stat(domainTemplatePath); err == nil {
 		// Found domain-specific template, load it
-		tpl, err := dt.ts.loadDomainTemplate(dt.layoutName, domain, dt.controller, dt.action)
+		loaded, err := dt.ts.loadDomainTemplate(dt.layoutName, domain, dt.controller, dt.action)
 		if err == nil {
-			return tpl
+			tpl = loaded
+		} else {
+			slog.Warn("failed to load domain template", "domain", domain, "error", err)
 		}
-		slog.Warn("failed to load domain template", "domain", domain, "error", err)
 	}
 
+	if !dt.ts.development {
+		dt.resolution.Store(domain, tpl)
+	}
+	if tpl != nil {
+		return tpl
+	}
 	return dt.defaultTpl
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.0.77] - 2026-10-27
+### Added
+- MCP: New `modules/mcp` package — a domain-agnostic Model Context Protocol engine for Tracks applications. It provides JSON-RPC 2.0 message handling, a tool registry with first-class destructive-tool filtering (`Tool.Destructive` + `WithReadOnly`), a stdio transport, and a stateless Streamable HTTP transport (`Register` mounts GET discovery and POST JSON-RPC on any route, and refuses to mount without authentication middleware). Supports protocol versions 2024-11-05 through 2025-06-18.
+### Changed
+- Templates: Dynamic template resolution is cached when `development` is false; template edits are picked up per-request only in development mode. `newTemplates` takes the development flag.
+
 ## [v0.0.76] - 2026-10-10
 ### Fixed
 - Templates: Partials (`_name.gohtml`) are found when the views directory is a symlink. `filepath.Walk` doesn't descend into a symlinked root, so a layout using `{{ template "name" . }}` failed with "no such template" when the views were linked in, e.g. next to a package's tests.

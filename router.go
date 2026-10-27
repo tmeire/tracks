@@ -162,7 +162,7 @@ func NewFromConfig(ctx context.Context, conf Config) Router {
 		requestMiddlewares: &middlewares{},
 		translator:         translator,
 		shutdownOtel:       shutdownOtel,
-		templates:          newTemplates(conf.BaseDomain),
+		templates:          newTemplates(conf.BaseDomain, conf.Development),
 	}
 
 	// HTTP traces for every request

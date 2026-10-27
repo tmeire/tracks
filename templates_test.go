@@ -32,7 +32,7 @@ func TestTemplates_PartialsInSymlinkedViews(t *testing.T) {
 	}
 
 	for _, basedir := range []string{views, link} {
-		ts := newTemplates("localhost")
+		ts := newTemplates("localhost", false)
 		ts.basedir = basedir
 		tpl, err := ts.Load("application", "home", "index")
 		if err != nil || tpl == nil {

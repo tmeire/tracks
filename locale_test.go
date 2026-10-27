@@ -152,7 +152,7 @@ func TestConfig_BaseURL(t *testing.T) {
 }
 
 func TestPathLocales_TemplateHelpers(t *testing.T) {
-	tpl := template.Must(template.New("test").Funcs(newTemplates("").fns).Parse(
+	tpl := template.Must(template.New("test").Funcs(newTemplates("", false).fns).Parse(
 		`{{ define "page" }}<a href="{{ localize "/cart" }}">{{ canonical_url }}</a>{{ alternate_links }}` +
 			`{{ range alternates }}[{{ .Locale }}{{ if .Current }}*{{ end }}]{{ end }}{{ end }}`))
 	a := &action{template: tpl, translator: i18n.NewTranslator("en")}
