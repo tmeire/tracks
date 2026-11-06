@@ -1,0 +1,7 @@
+<!-- Test fixture: the host app provides its own consent page. -->
+<form method="POST" action="{{ v "ActionURL" }}">
+  <input type="hidden" name="request_id" value="{{ v "RequestID" }}">
+  <input type="hidden" name="nonce" value="{{ v "Nonce" }}">
+  <input type="hidden" name="decision" value="approve">
+  <button type="submit">Approve {{ v "ClientName" }}</button>
+</form>

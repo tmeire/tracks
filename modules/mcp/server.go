@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"sync"
 )
@@ -38,6 +39,22 @@ func WithReadOnly() Option {
 	}
 }
 
+// WithOAuth enables the MCP OAuth 2.1 authorization flow: dynamic client
+// registration, authorization code + PKCE, refresh tokens, and Bearer-token
+// validation on tool calls. Consent is given by an authenticated admin in the
+// browser; consentSubject, when set, records which admin approved a token
+// for the audit trail.
+func WithOAuth(consentSubject func(r *http.Request) string) Option {
+	return func(s *Server) {
+		store := newOAuthStore()
+		store.ConsentSubject = consentSubject
+		s.oauth = store
+	}
+}
+
+// OAuthEnabled reports whether Bearer-token auth is active on this server.
+func (s *Server) OAuthEnabled() bool { return s.oauth != nil }
+
 // Server coordinates JSON-RPC 2.0 MCP communication over any transport. The
 // stdio loop (Serve) and the HTTP adapter (see http.go) both build on it.
 type Server struct {
@@ -45,6 +62,7 @@ type Server struct {
 	tools    map[string]ToolHandler
 	toolDefs []Tool
 	readOnly bool
+	oauth    *OAuthStore
 	mu       sync.RWMutex
 }
 

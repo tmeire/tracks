@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.78] - 2026-11-06
+### Added
+- MCP: OAuth 2.1 authorization for `modules/mcp` — dynamic client registration (RFC 7591), authorization code + PKCE with S256 (RFC 7636), token endpoint with refresh rotation (RFC 6749), and RFC 8414/9728 well-known metadata. `ServerInfo.Issuer` and `ServerInfo.OAuthBase` select the public origin and OAuth endpoint prefix; `WithOAuth(consentSubject)` enables the flow and `Server.BearerOrSession` accepts an access token or the host's session on the JSON-RPC route (a login redirect becomes 401 + WWW-Authenticate so clients can start the flow). Grants and tokens are kept in memory: a restart logs clients out and they re-consent. The host provides the consent view at `views/mcp/oauth_consent.gohtml`.
+
 ## [v0.0.77] - 2026-10-27
 ### Added
 - MCP: New `modules/mcp` package — a domain-agnostic Model Context Protocol engine for Tracks applications. It provides JSON-RPC 2.0 message handling, a tool registry with first-class destructive-tool filtering (`Tool.Destructive` + `WithReadOnly`), a stdio transport, and a stateless Streamable HTTP transport (`Register` mounts GET discovery and POST JSON-RPC on any route, and refuses to mount without authentication middleware). Supports protocol versions 2024-11-05 through 2025-06-18.
