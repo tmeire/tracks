@@ -28,7 +28,10 @@ type ServerInfo struct {
 	OAuthBase string
 }
 
-// issuer resolves the public origin, preferring an explicit ServerInfo.Issuer.
+// issuerFromRouter resolves the public origin, preferring an explicit
+// ServerInfo.Issuer. The config's port is only appended for plain-HTTP
+// (development) servers: behind a TLS terminator the public origin never
+// carries the internal port, so proxied hosts must set ServerInfo.Issuer.
 func issuerFromRouter(r tracks.Router, info ServerInfo) string {
 	if info.Issuer != "" {
 		return strings.TrimRight(info.Issuer, "/")
@@ -38,7 +41,7 @@ func issuerFromRouter(r tracks.Router, info ServerInfo) string {
 		scheme = "https"
 	}
 	host := r.BaseDomain()
-	if port := r.Config().Port; port != 0 && port != 80 && port != 443 {
+	if port := r.Config().Port; !r.Secure() && port != 0 && port != 80 {
 		host = fmt.Sprintf("%s:%d", host, port)
 	}
 	return scheme + "://" + host
