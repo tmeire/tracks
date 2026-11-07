@@ -79,6 +79,9 @@ func TestOAuthFullFlow(t *testing.T) {
 
 	rr = do(h, mustRequest("GET", "/.well-known/oauth-authorization-server/mcp", nil))
 	mustOK(t, rr, "authorization server metadata")
+	// RFC 8414: the issuer has no path, so the unsuffixed location must serve too.
+	rr = do(h, mustRequest("GET", "/.well-known/oauth-authorization-server", nil))
+	mustOK(t, rr, "unsuffixed authorization server metadata")
 	var asMeta struct {
 		Issuer               string   `json:"issuer"`
 		RegistrationEndpoint string   `json:"registration_endpoint"`

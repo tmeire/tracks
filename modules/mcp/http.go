@@ -265,6 +265,14 @@ func mountOAuth(r tracks.Router, server *Server, path string, info ServerInfo, i
 	})
 	r.Serve(tracks.Action{
 		Method:     http.MethodGet,
+		Path:       "/.well-known/oauth-authorization-server",
+		Controller: "mcp",
+		Name:       "oauth_server_metadata",
+		Func:       metadataFunc(server.authorizationServerMetadata(issuer, oauthBase)),
+		Layout:     "plain",
+	})
+	r.Serve(tracks.Action{
+		Method:     http.MethodGet,
 		Path:       "/.well-known/oauth-authorization-server" + oauthBase,
 		Controller: "mcp",
 		Name:       "oauth_server_metadata",
