@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.0.80] - 2026-11-07
+### Fixed
+- MCP: Served the authorization server metadata at `/.well-known/oauth-authorization-server` (the RFC 8414 location for an origin issuer) in addition to the path-scoped variant; clients that read it from the issuer root saw a 404 and rejected dynamic client registration.
+
+## [v0.0.79] - 2026-11-07
+### Fixed
+- MCP: Didn't append the internal config port to the issuer origin on secure servers — behind a TLS terminator the config port is the proxy's internal port, so advertised OAuth endpoints pointed at a closed port and clients timed out. Hosts behind a proxy set `ServerInfo.Issuer` explicitly.
+
 ## [v0.0.78] - 2026-11-06
 ### Added
 - MCP: OAuth 2.1 authorization for `modules/mcp` — dynamic client registration (RFC 7591), authorization code + PKCE with S256 (RFC 7636), token endpoint with refresh rotation (RFC 6749), and RFC 8414/9728 well-known metadata. `ServerInfo.Issuer` and `ServerInfo.OAuthBase` select the public origin and OAuth endpoint prefix; `WithOAuth(consentSubject)` enables the flow and `Server.BearerOrSession` accepts an access token or the host's session on the JSON-RPC route (a login redirect becomes 401 + WWW-Authenticate so clients can start the flow). Grants and tokens are kept in memory: a restart logs clients out and they re-consent. The host provides the consent view at `views/mcp/oauth_consent.gohtml`.
