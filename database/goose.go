@@ -73,7 +73,7 @@ func RunGooseMigration(ctx context.Context, command string, dbType Type, dbPath 
 	}
 
 	// Set up the database connection
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite3", dbPath+"?_busy_timeout=5000")
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
