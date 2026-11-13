@@ -1,5 +1,16 @@
 # Changelog
 
+## [v0.0.81] - 2026-11-13
+### Security
+- Sessions: Sessions expire server-side — 30 days after creation and after 7 days without a request — and `Authenticate` issues a new session ID on login. `sessions.absolute_timeout` and `sessions.idle_timeout` (Go duration strings; `"0"` disables a limit) override the defaults. `Store.DeleteExpired` removes expired rows from the database store; nothing schedules it. Existing sessions older than the limits are logged out.
+- Authentication: Activation tokens expire after 7 days (`authentication.ActivationTokenTTL`); the expiry is part of the token, so no schema change is needed. Tokens issued before this release are treated as expired and need a new invite. `User.ActivationTokenExpiry` and `User.ActivationTokenValid` expose the check.
+- Authentication: `SetPasswordWithToken` rejects an empty token. It matched every user whose stored token is empty and set that user's password.
+- CSRF: The CSRF cookie is `Secure` behind a TLS-terminating proxy (it followed `r.TLS` only). `CSRFConfig.Secure` forces the flag; `router.CSRFProtection` sets it from `router.Secure()`.
+### Fixed
+- SQLite: Every connection gets `busy_timeout` (5000 ms, `busy_timeout_ms` in the sqlite config; negative disables), including tenant databases and the migration runner. `foreign_keys: true` in the sqlite config turns on foreign key enforcement; it is off by default because table-rebuild migrations would cascade-delete child rows.
+- Actions: HTML error pages are sent with their status code; they were rendered with 200 OK.
+- Logging: Route registration, the tenant splitter and the feature flag middleware log through `slog.Debug` instead of printing to stdout.
+
 ## [v0.0.80] - 2026-11-07
 ### Fixed
 - MCP: Served the authorization server metadata at `/.well-known/oauth-authorization-server` (the RFC 8414 location for an origin issuer) in addition to the path-scoped variant; clients that read it from the issuer root saw a 404 and rejected dynamic client registration.
