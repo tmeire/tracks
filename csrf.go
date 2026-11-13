@@ -8,14 +8,19 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
+
+	"github.com/tmeire/tracks/session"
 )
 
 type CSRFConfig struct {
-	TokenLength  int
-	CookieName   string
-	HeaderName   string
-	FieldName    string
-	ExemptPaths  []string
+	TokenLength int
+	CookieName  string
+	HeaderName  string
+	FieldName   string
+	ExemptPaths []string
+	// Secure forces the Secure flag on the CSRF cookie. When false the flag is still set for requests
+	// that arrive over TLS or through a TLS-terminating proxy (X-Forwarded-Proto: https).
+	Secure bool
 }
 
 const (
@@ -110,7 +115,7 @@ func getOrCreateToken(w http.ResponseWriter, r *http.Request, config CSRFConfig)
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   config.Secure || session.IsSecure(r),
 		SameSite: http.SameSiteLaxMode,
 	})
 	return token

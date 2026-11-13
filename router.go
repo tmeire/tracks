@@ -572,6 +572,9 @@ func (r *router) RateLimit(config RateLimitConfig) Router {
 }
 
 func (r *router) CSRFProtection(config CSRFConfig) Router {
+	if r.Secure() {
+		config.Secure = true
+	}
 	r.GlobalMiddleware(CSRFProtection(config))
 	return r
 }
