@@ -13,35 +13,67 @@ import (
 type Store struct {
 	sessions map[string]*sessionData
 	sessMu   sync.RWMutex
+	lifetime session.Lifetime
 }
 
 func NewStore() *Store {
 	return &Store{
 		sessions: make(map[string]*sessionData),
+		lifetime: session.Lifetime{}.Resolved(),
 	}
 }
 
-func (s *Store) Load(_ context.Context, id string) (session.Session, bool) {
-	s.sessMu.RLock()
-	defer s.sessMu.RUnlock()
+// SetLifetime configures the absolute and idle timeouts of the sessions in this store.
+func (s *Store) SetLifetime(l session.Lifetime) {
+	s.sessMu.Lock()
+	defer s.sessMu.Unlock()
+	s.lifetime = l.Resolved()
+}
 
-	session, ok := s.sessions[id]
-	return session, ok
+func (s *Store) Load(_ context.Context, id string) (session.Session, bool) {
+	s.sessMu.Lock()
+	defer s.sessMu.Unlock()
+
+	sess, ok := s.sessions[id]
+	if !ok {
+		return nil, false
+	}
+
+	sess.mu.RLock()
+	expired := s.lifetime.Expired(sess.createdAt, sess.updatedAt, time.Now())
+	sess.mu.RUnlock()
+	if expired {
+		delete(s.sessions, id)
+		return nil, false
+	}
+	return sess, true
 }
 
 func (s *Store) Create(_ context.Context) session.Session {
-	session := &sessionData{
-		Id:       generateSessionID(),
-		Data:     make(map[string]string),
-		FlashOld: make(map[string]string),
-		FlashNew: make(map[string]string),
+	now := time.Now()
+	sess := &sessionData{
+		store:     s,
+		Id:        generateSessionID(),
+		createdAt: now,
+		updatedAt: now,
+		Data:      make(map[string]string),
+		FlashOld:  make(map[string]string),
+		FlashNew:  make(map[string]string),
 	}
 
 	s.sessMu.Lock()
 	defer s.sessMu.Unlock()
-	s.sessions[session.Id] = session
+	s.sessions[sess.Id] = sess
 
-	return session
+	return sess
+}
+
+// rekey moves a session from the old ID to its new ID.
+func (s *Store) rekey(oldID string, sess *sessionData, newID string) {
+	s.sessMu.Lock()
+	defer s.sessMu.Unlock()
+	delete(s.sessions, oldID)
+	s.sessions[newID] = sess
 }
 
 // generateSessionID generates a random sessions ID.

@@ -3,19 +3,39 @@ package inmemory
 import (
 	"context"
 	"sync"
+	"time"
 )
 
 // sessionData is the implementation of the Session interface.
 type sessionData struct {
-	Id       string
-	Data     map[string]string
-	FlashOld map[string]string
-	FlashNew map[string]string
-	mu       sync.RWMutex
+	store     *Store
+	createdAt time.Time
+	updatedAt time.Time
+	Id        string
+	Data      map[string]string
+	FlashOld  map[string]string
+	FlashNew  map[string]string
+	mu        sync.RWMutex
 }
 
+// Authenticate marks the session as belonging to userId and issues a new session ID to prevent
+// session fixation. Calling it again for the already authenticated user keeps the ID.
 func (s *sessionData) Authenticate(userId string) {
-	s.Put("user_id", userId)
+	s.mu.Lock()
+	if cur, ok := s.Data["user_id"]; ok && cur == userId {
+		s.mu.Unlock()
+		return
+	}
+	s.Data["user_id"] = userId
+	oldID := s.Id
+	s.Id = generateSessionID()
+	s.createdAt = time.Now()
+	newID := s.Id
+	s.mu.Unlock()
+
+	if s.store != nil {
+		s.store.rekey(oldID, s, newID)
+	}
 }
 
 func (s *sessionData) Authenticated() (string, bool) {
@@ -82,15 +102,23 @@ func (s *sessionData) Save(ctx context.Context) error {
 
 	s.FlashOld = s.FlashNew
 	s.FlashNew = make(map[string]string)
+	s.updatedAt = time.Now()
 	return nil
 }
 
 func (s *sessionData) Invalidate(ctx context.Context) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	oldID := s.Id
 	s.Id = generateSessionID()
+	s.createdAt = time.Now()
+	s.updatedAt = s.createdAt
 	s.Data = make(map[string]string)
 	s.FlashOld = make(map[string]string)
 	s.FlashNew = make(map[string]string)
+	newID := s.Id
+	s.mu.Unlock()
+
+	if s.store != nil {
+		s.store.rekey(oldID, s, newID)
+	}
 }

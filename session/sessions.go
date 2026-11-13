@@ -6,11 +6,60 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
+
+const (
+	// DefaultAbsoluteTimeout is the maximum age of a session, counted from its creation (or its last login).
+	DefaultAbsoluteTimeout = 30 * 24 * time.Hour
+	// DefaultIdleTimeout is the maximum time between two requests of the same session.
+	DefaultIdleTimeout = 7 * 24 * time.Hour
+)
+
+// Lifetime configures server-side session expiry. A zero value means "use the default",
+// a negative value disables that limit.
+type Lifetime struct {
+	Absolute time.Duration
+	Idle     time.Duration
+}
+
+// Resolved returns the lifetime with defaults filled in. Disabled (negative) limits become 0.
+func (l Lifetime) Resolved() Lifetime {
+	switch {
+	case l.Absolute == 0:
+		l.Absolute = DefaultAbsoluteTimeout
+	case l.Absolute < 0:
+		l.Absolute = 0
+	}
+	switch {
+	case l.Idle == 0:
+		l.Idle = DefaultIdleTimeout
+	case l.Idle < 0:
+		l.Idle = 0
+	}
+	return l
+}
+
+// Expired reports whether a session created at createdAt and last used at updatedAt is expired at now.
+// The lifetime must be Resolved (a 0 limit means disabled).
+func (l Lifetime) Expired(createdAt, updatedAt, now time.Time) bool {
+	if l.Absolute > 0 && now.Sub(createdAt) > l.Absolute {
+		return true
+	}
+	if l.Idle > 0 && now.Sub(updatedAt) > l.Idle {
+		return true
+	}
+	return false
+}
+
+// LifetimeSetter is implemented by stores whose session lifetime can be configured.
+type LifetimeSetter interface {
+	SetLifetime(Lifetime)
+}
 
 type Store interface {
 	Load(ctx context.Context, id string) (Session, bool)
@@ -121,12 +170,12 @@ type middleware struct {
 
 type sessionResponseWriter struct {
 	http.ResponseWriter
-	session    Session
-	initialID  string
-	domain     string
-	ctx        context.Context
-	secure     bool
-	saved      bool
+	session   Session
+	initialID string
+	domain    string
+	ctx       context.Context
+	secure    bool
+	saved     bool
 }
 
 func (w *sessionResponseWriter) WriteHeader(code int) {
