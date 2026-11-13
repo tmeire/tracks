@@ -333,7 +333,7 @@ func (r *router) serve(method, urlPath string, controller, action string, a Acti
 	normalizedPath := r.normalize(urlPath)
 
 	pattern := method + " " + normalizedPath
-	fmt.Printf("DEBUG: Registering route: %s (Controller: %s, Action: %s, Router: %p)\n", pattern, controller, action, r)
+	slog.Debug("registering route", "pattern", pattern, "controller", controller, "action", action)
 
 	if layout == "" {
 		layout = defaultLayout

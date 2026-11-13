@@ -3,6 +3,7 @@ package featureflags
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -78,7 +79,7 @@ func WithFlags(r tracks.Router) tracks.Middleware {
 			addSpanAttrEnabled(span, effective)
 
 			// store in view vars
-			fmt.Println("effective flags:", effective)
+			slog.DebugContext(ctx, "effective flags", "flags", effective)
 			req = tracks.AddViewVar(req, "flags", effective)
 
 			next.ServeHTTP(w, req.WithContext(ctx))

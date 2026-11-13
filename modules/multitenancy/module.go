@@ -100,7 +100,7 @@ func (s *splitter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	fmt.Printf("DEBUG: Splitter: Request %s %s (Host: %s, Subdomain: %s)\n", req.Method, req.URL.Path, req.Host, subdomain)
+	slog.DebugContext(req.Context(), "splitter: request", "method", req.Method, "path", req.URL.Path, "host", req.Host, "subdomain", subdomain)
 
 	ctx := req.Context()
 	ctx = WithCentralDB(ctx, s.tenantDB.GetCentralDB())
