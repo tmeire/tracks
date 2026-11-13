@@ -2,6 +2,7 @@ package tracks
 
 import (
 	"errors"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -62,4 +63,47 @@ func TestAction_RedirectStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testTemplate struct{ *template.Template }
+
+func (t testTemplate) Clone() (*template.Template, error) { return t.Template.Clone() }
+
+func TestAction_ErrorTemplateStatusReachesClient(t *testing.T) {
+	tpl := template.Must(template.New("root").Parse(`{{define "404"}}<h1>not found</h1>{{end}}{{define "page"}}<p>ok</p>{{end}}`))
+
+	run := func(resp *Response, tplToUse Template) *httptest.ResponseRecorder {
+		a := &action{name: "pages#show", template: tplToUse, impl: func(r *http.Request) (any, error) { return resp, nil }}
+		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		req.Header.Set("Accept", "text/html")
+		rec := httptest.NewRecorder()
+		a.ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("html error template keeps its status", func(t *testing.T) {
+		rec := run(&Response{StatusCode: http.StatusNotFound}, testTemplate{tpl})
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Equal(t, "<h1>not found</h1>", rec.Body.String())
+		assert.Equal(t, "text/html", rec.Header().Get("Content-Type"))
+	})
+
+	t.Run("missing error template falls back to json with the status", func(t *testing.T) {
+		rec := run(&Response{StatusCode: http.StatusTeapot, Data: map[string]string{"a": "b"}}, testTemplate{tpl})
+		assert.Equal(t, http.StatusTeapot, rec.Code)
+		assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+	})
+
+	t.Run("success still renders the page with 200", func(t *testing.T) {
+		tpl2 := template.Must(template.New("root").Parse(`{{define "page"}}<p>ok</p>{{end}}`))
+		rec := run(&Response{}, testTemplate{tpl2})
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "<p>ok</p>", rec.Body.String())
+	})
+
+	t.Run("redirect is untouched", func(t *testing.T) {
+		rec := run(&Response{Location: "/y"}, testTemplate{tpl})
+		assert.Equal(t, http.StatusSeeOther, rec.Code)
+		assert.Equal(t, "/y", rec.Header().Get("Location"))
+	})
 }

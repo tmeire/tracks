@@ -1,6 +1,7 @@
 package tracks
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -221,14 +222,18 @@ func (a *action) renderHTML(r *http.Request, w http.ResponseWriter, resp *Respon
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err := a.template.ExecuteTemplate(w, strconv.Itoa(resp.StatusCode), resp)
-		if err != nil {
+		// Render into a buffer first so a failing template leaves the response untouched and the
+		// JSON fallback can still set its own status, and so the status code is sent exactly once.
+		var buf bytes.Buffer
+		if err := a.template.ExecuteTemplate(&buf, strconv.Itoa(resp.StatusCode), resp); err != nil {
 			span.RecordError(err)
-			// If status-specific template fails, try a generic error template if it exists
-			// or just return the error to fallback to JSON
+			// If status-specific template fails, return the error to fallback to JSON
 			return err
 		}
-		return nil
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(resp.StatusCode)
+		_, err := w.Write(buf.Bytes())
+		return err
 	}
 
 	w.Header().Set("Content-Type", "text/html")
