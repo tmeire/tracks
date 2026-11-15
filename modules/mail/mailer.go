@@ -25,6 +25,8 @@ type Options struct {
 	Template string // e.g. "user_mailer/welcome"
 	Layout   string // defaults to "mailer"
 	Data     any
+	// Headers are extra headers to send, e.g. List-Unsubscribe.
+	Headers map[string]string
 }
 
 // Mail prepares a Message for delivery
@@ -41,6 +43,7 @@ func (m *Mailer) Mail(opt Options) *Message {
 		Cc:      opt.Cc,
 		Bcc:     opt.Bcc,
 		Subject: opt.Subject,
+		Headers: opt.Headers,
 	}
 
 	if opt.Template != "" {
